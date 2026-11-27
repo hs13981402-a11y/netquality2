@@ -409,6 +409,18 @@
                     android:textDirection="ltr"
                     android:padding="12dp"
                     android:background="@drawable/input_card" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="اپراتوری که همین حالا به اینترنت آن متصل هستید"
+                    android:textColor="#17324D"
+                    android:textStyle="bold" />
+                <Spinner
+                    android:id="@+id/spFilterOperator"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:entries="@array/operator_names" />
                 <Button
                     android:id="@+id/btnFilterCheck"
                     android:layout_width="match_parent"
@@ -426,6 +438,31 @@
                     android:layout_marginTop="10dp"
                     android:indeterminate="true"
                     android:visibility="gone" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="مقایسه دو اپراتور"
+                    android:textColor="#17324D"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+                <Spinner
+                    android:id="@+id/spFilterCompareA"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:entries="@array/operator_names" />
+                <Spinner
+                    android:id="@+id/spFilterCompareB"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:entries="@array/operator_names" />
+                <Button
+                    android:id="@+id/btnCompareFilter"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="نمایش مقایسه اپراتورها"
+                    android:backgroundTint="#17324D"
+                    android:textColor="#FFFFFF" />
                 <Button
                     android:id="@+id/btnShareFilter"
                     android:layout_width="match_parent"
@@ -469,7 +506,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="جست‌وجوی رکوردهای A، AAAA، MX، NS، TXT، CNAME و SOA با DNS-over-HTTPS."
+                    android:text="استعلام تکی یا گروهی رکوردها همراه با نمودار تعداد پاسخ‌ها؛ ارتباط امن DNS-over-HTTPS."
                     android:textColor="#526579"
                     android:textSize="13sp" />
                 <EditText
@@ -489,6 +526,13 @@
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:entries="@array/dns_record_types" />
+                <com.netquality.app.DnsGraphView
+                    android:id="@+id/dnsGraph"
+                    android:layout_width="match_parent"
+                    android:layout_height="210dp"
+                    android:layout_marginTop="14dp"
+                    android:padding="8dp"
+                    android:background="@drawable/report_card" />
                 <Button
                     android:id="@+id/btnDnsLookup"
                     android:layout_width="match_parent"
