@@ -187,12 +187,6 @@ object Net {
         val jitterMs: Double, val throughputMbps: Double
     )
 
-    data class IperfUdpResult(
-        val host: String, val port: Int, val bitrate: String,
-        val sentPackets: Long, val lostPackets: Long, val lossPercent: Double,
-        val jitterMs: Double, val throughputMbps: Double
-    )
-
     fun iperfUdpTest(context: android.content.Context, host: String, port: Int, bitrate: String, durationSeconds: Int = 10): IperfUdpResult {
         val executable = java.io.File(context.filesDir, "iperf3")
         if (!executable.exists()) {
@@ -228,6 +222,45 @@ object Net {
         val mbps = summary.optDouble("bits_per_second", 0.0) / 1_000_000.0
         if (sent <= 0) throw IllegalStateException("سرور آمار بسته‌های UDP را برنگرداند.")
         return IperfUdpResult(host, port, bitrate, sent, lost, loss, jitter, mbps)
+    }
+
+    data class UdpLossResult(val sent: Int, val received: Int) {
+        val loss: Double get() = if (sent == 0) 100.0 else (sent - received) * 100.0 / sent
+    }
+
+    fun udpLossTest(server: String, domain: String, count: Int): UdpLossResult {
+        var received = 0
+        repeat(count) {
+            val result = dnsQuery(server, domain, 1200)
+            if (result != null && result >= 0) received++
+            if (it < count - 1) Thread.sleep(120)
+        }
+        return UdpLossResult(count, received)
+    }
+
+    fun uploadTest(): Double? {
+        var connection: HttpURLConnection? = null
+        return try {
+            val payload = ByteArray(4 * 1024 * 1024)
+            Random().nextBytes(payload)
+            connection = URL("https://speed.cloudflare.com/__up").openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.connectTimeout = 7000
+            connection.readTimeout = 15000
+            connection.setRequestProperty("User-Agent", "NetQuality/1.0")
+            connection.setRequestProperty("Content-Type", "application/octet-stream")
+            connection.setFixedLengthStreamingMode(payload.size)
+            val start = System.nanoTime()
+            connection.outputStream.use { it.write(payload) }
+            val code = connection.responseCode
+            val seconds = (System.nanoTime() - start) / 1e9
+            if (code in 200..299 && seconds > 0) payload.size * 8.0 / seconds / 1_000_000.0 else null
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection?.disconnect()
+        }
     }
 
     // ───────── HTTP و سرعت ─────────
