@@ -167,10 +167,11 @@
                     android:minHeight="92dp"
                     android:gravity="center_vertical"
                     android:text="برای شروع، دکمه‌ی تست را بزنید"
-                    android:textColor="#111111"
-                    android:textSize="17sp"
+                    android:textColor="#17324D"
+                    android:textSize="16sp"
                     android:textStyle="bold" 
-                    android:elevation="2dp"/>
+                    android:elevation="2dp"/
+                    android:lineSpacingExtra="4dp">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -361,8 +362,11 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:textColor="#222222"
-                    android:textSize="13sp" />
+                    android:textColor="#526579"
+                    android:textSize="13sp" /
+                    android:background="@drawable/report_card"
+                    android:padding="12dp"
+                    android:lineSpacingExtra="4dp">
 
                 <com.netquality.app.GraphView
                     android:id="@+id/graph"
@@ -383,10 +387,10 @@
                     android:textColor="#17243A"
                     android:textIsSelectable="true"
                     android:textSize="10sp"
-                    android:lineSpacingExtra="5dp"
+                    android:lineSpacingExtra="3dp"
                     android:fontFamily="monospace"
                     android:typeface="monospace"
-                    android:padding="16dp"
+                    android:padding="14dp"
                     android:background="@drawable/report_card"
                     android:elevation="1dp"/>
 
@@ -761,7 +765,12 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" />
+                android:textSize="14sp" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="54dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
             <TextView
                 android:layout_width="match_parent"
@@ -780,7 +789,12 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" />
+                android:textSize="14sp" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="54dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
             <TextView
                 android:layout_width="match_parent"
@@ -799,7 +813,12 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" />
+                android:textSize="14sp" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="54dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
             <TextView
                 android:layout_width="match_parent"
@@ -818,7 +837,12 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" />
+                android:textSize="14sp" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="54dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
             <TextView
                 android:layout_width="match_parent"
@@ -837,7 +861,12 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" />
+                android:textSize="14sp" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="54dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
             <TextView
                 android:layout_width="match_parent"
@@ -856,7 +885,12 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" />
+                android:textSize="14sp" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="54dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
                 <CheckBox
                     android:id="@+id/cbSpeedTest"
@@ -864,7 +898,10 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:checked="false"
-                    android:text="اجرای تست سرعت دانلود در تست کامل" />
+                    android:text="اجرای تست سرعت دانلود در تست کامل" /
+                    android:buttonTint="#0E9F9A"
+                    android:textColor="#17324D"
+                    android:textSize="14sp">
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -876,13 +913,20 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="ذخیره" />
+                    android:text="ذخیره" /
+                    android:backgroundTint="#0E9F9A"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:minHeight="52dp">
 
                 <Button
                     android:id="@+id/btnReset"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="بازگشت به پیش‌فرض" />
+                    android:text="بازگشت به پیش‌فرض" /
+                    android:backgroundTint="#E4ECF4"
+                    android:textColor="#17324D"
+                    android:minHeight="48dp">
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
