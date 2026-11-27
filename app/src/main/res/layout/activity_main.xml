@@ -42,7 +42,7 @@
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:textSize="18sp"
-            android:background="@drawable/panel_card" />
+            android:background="#0E9F9A" />
     </LinearLayout>
 
     <LinearLayout
