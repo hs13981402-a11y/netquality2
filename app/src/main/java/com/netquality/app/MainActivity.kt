@@ -625,13 +625,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun saveSettings() {
         for ((k, id) in cfgFields) Config.put(this, k, findViewById<EditText>(id).text.toString())
-        getSharedPreferences("netq", MODE_PRIVATE).edit().putBoolean("speed_test_enabled", cbSpeedTest.isChecked).apply()
+        getSharedPreferences("netq", MODE_PRIVATE).edit().putBoolean("speed_test_enabled", cbSpeedTest.isChecked).putBoolean("upload_test_enabled", cbUploadTest.isChecked).apply()
         Toast.makeText(this, "تنظیمات ذخیره شد", Toast.LENGTH_SHORT).show()
     }
 
     private fun resetSettings() {
         for ((k, _) in cfgFields) Config.reset(this, k)
-        getSharedPreferences("netq", MODE_PRIVATE).edit().putBoolean("speed_test_enabled", false).apply()
+        getSharedPreferences("netq", MODE_PRIVATE).edit().putBoolean("speed_test_enabled", false).putBoolean("upload_test_enabled", false).apply()
         loadSettings()
         Toast.makeText(this, "به پیش‌فرض برگشت", Toast.LENGTH_SHORT).show()
     }
