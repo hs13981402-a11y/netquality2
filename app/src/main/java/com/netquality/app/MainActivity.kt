@@ -621,6 +621,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadSettings() {
         for ((k, id) in cfgFields) findViewById<EditText>(id).setText(Config.get(this, k))
         cbSpeedTest.isChecked = getSharedPreferences("netq", MODE_PRIVATE).getBoolean("speed_test_enabled", false)
+        cbUploadTest.isChecked = getSharedPreferences("netq", MODE_PRIVATE).getBoolean("upload_test_enabled", false)
     }
 
     private fun saveSettings() {
