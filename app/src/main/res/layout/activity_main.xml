@@ -58,6 +58,17 @@
             android:minHeight="48dp" />
 
         <Button
+            android:id="@+id/tabDns"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="DNS"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#1E4966"
+            android:minHeight="48dp" />
+
+        <Button
             android:id="@+id/tabSettings"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -100,6 +111,23 @@
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ثبت نتایج و مقایسه اپراتورها"
+                    android:textStyle="bold"
+                    android:textColor="#17324D"
+                    android:layout_marginTop="4dp" />
+                <Spinner
+                    android:id="@+id/spOperator"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:entries="@array/operator_names" />
+                <Button
+                    android:id="@+id/btnCompareOperators"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="مقایسه نتایج اپراتورها" />
                 <CheckBox
                     android:id="@+id/cbAuto"
                     android:layout_width="wrap_content"
@@ -398,6 +426,12 @@
                     android:layout_marginTop="10dp"
                     android:indeterminate="true"
                     android:visibility="gone" />
+                <Button
+                    android:id="@+id/btnShareFilter"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="اشتراک‌گذاری گزارش بررسی" />
                 <TextView
                     android:id="@+id/tvFilterResult"
                     android:layout_width="match_parent"
@@ -409,6 +443,70 @@
                     android:textColor="#243B53"
                     android:textSize="15sp"
                     android:lineSpacingExtra="7dp"
+                    android:textIsSelectable="true" />
+            </LinearLayout>
+        </ScrollView>
+
+
+        <ScrollView
+            android:id="@+id/panelDns"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ابزار پیشرفته DNS"
+                    android:textColor="#102A43"
+                    android:textSize="21sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="جست‌وجوی رکوردهای A، AAAA، MX، NS، TXT، CNAME و SOA با DNS-over-HTTPS."
+                    android:textColor="#526579"
+                    android:textSize="13sp" />
+                <EditText
+                    android:id="@+id/etDnsLookup"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="18dp"
+                    android:hint="دامنه؛ مثال example.com"
+                    android:inputType="textUri"
+                    android:singleLine="true"
+                    android:layoutDirection="ltr"
+                    android:textDirection="ltr"
+                    android:padding="12dp"
+                    android:background="@drawable/input_card" />
+                <Spinner
+                    android:id="@+id/spDnsType"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:entries="@array/dns_record_types" />
+                <Button
+                    android:id="@+id/btnDnsLookup"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:text="استعلام رکورد DNS"
+                    android:backgroundTint="#087E8B"
+                    android:textColor="#FFFFFF" />
+                <TextView
+                    android:id="@+id/tvDnsLookupResult"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:padding="18dp"
+                    android:background="@drawable/report_card"
+                    android:text="نتیجه استعلام در این قسمت نمایش داده می‌شود."
+                    android:textColor="#243B53"
+                    android:textSize="14sp"
+                    android:lineSpacingExtra="6dp"
                     android:textIsSelectable="true" />
             </LinearLayout>
         </ScrollView>
