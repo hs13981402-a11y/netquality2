@@ -8,6 +8,26 @@
         <item name="android:statusBarColor">#0B1E30</item>
         <item name="android:navigationBarColor">#0B1E30</item>
         <item name="android:windowBackground">#F3F6FA</item>
-        <item name="android:colorButtonNormal">#E3EBF3</item>
+        <item name="android:colorButtonNormal">#E7EEF5</item>
+        <item name="colorControlHighlight">#263858</item>
+        <item name="android:textColorPrimary">#172B43</item>
+        <item name="buttonStyle">@style/MonitoringButton</item>
+        <item name="android:editTextStyle">@style/MonitoringEditText</item>
+    </style>
+
+    <style name="MonitoringButton" parent="Widget.AppCompat.Button">
+        <item name="android:backgroundTint">#E7EEF5</item>
+        <item name="android:textColor">#17324D</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:paddingStart">18dp</item>
+        <item name="android:paddingEnd">18dp</item>
+    </style>
+
+    <style name="MonitoringEditText" parent="Widget.AppCompat.EditText">
+        <item name="android:textColor">#172B43</item>
+        <item name="android:textColorHint">#8293A6</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:backgroundTint">#A9B9C9</item>
     </style>
 </resources>
