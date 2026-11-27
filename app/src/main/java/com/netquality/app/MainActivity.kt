@@ -18,6 +18,7 @@ import android.widget.RadioButton
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.LinearLayout
+import android.widget.ArrayAdapter
 import android.widget.ScrollView
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
@@ -104,6 +105,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spFilterCompareA: Spinner
     private lateinit var spFilterCompareB: Spinner
     private lateinit var dnsGraph: DnsGraphView
+    private lateinit var etDnsServer: EditText
+    private lateinit var spDnsServer: Spinner
+    private lateinit var dnsChartsContainer: LinearLayout
+    private lateinit var cbSpeedTest: CheckBox
     private lateinit var tvFilterResult: TextView
     private lateinit var filterProgress: ProgressBar
     private lateinit var btnFilterCheck: Button
@@ -179,7 +184,10 @@ class MainActivity : AppCompatActivity() {
         spFilterOperator = findViewById(R.id.spFilterOperator)
         spFilterCompareA = findViewById(R.id.spFilterCompareA)
         spFilterCompareB = findViewById(R.id.spFilterCompareB)
-        dnsGraph = findViewById(R.id.dnsGraph)
+        etDnsServer = findViewById(R.id.etDnsServer)
+        spDnsServer = findViewById(R.id.spDnsServer)
+        dnsChartsContainer = findViewById(R.id.dnsChartsContainer)
+        cbSpeedTest = findViewById(R.id.cbSpeedTest)
         tvFilterResult = findViewById(R.id.tvFilterResult)
         filterProgress = findViewById(R.id.filterProgress)
         btnFilterCheck = findViewById(R.id.btnFilterCheck)
@@ -228,6 +236,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabDns).setOnClickListener { showPanel(5) }
         findViewById<Button>(R.id.btnCompareOperators).setOnClickListener { showOperatorComparison() }
         btnDnsLookup.setOnClickListener { runDnsLookup() }
+        findViewById<Button>(R.id.btnAddDnsServer).setOnClickListener { addDnsServer() }
+        refreshDnsServers()
         findViewById<Button>(R.id.btnCompareFilter).setOnClickListener { compareFilterOperators() }
         findViewById<Button>(R.id.btnShareFilter).setOnClickListener {
             val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
@@ -367,44 +377,78 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("بستن", null).show()
     }
 
+    private fun refreshDnsServers() {
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val servers = (prefs.getString("custom_dns_servers", "8.8.8.8\\n1.1.1.1") ?: "")
+            .lines().map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        val list = if (servers.isEmpty()) listOf("8.8.8.8") else servers
+        spDnsServer.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, list)
+    }
+
+    private fun addDnsServer() {
+        val ip = etDnsServer.text.toString().trim()
+        if (ip.isBlank()) { Toast.makeText(this, "IP سرور را وارد کنید", Toast.LENGTH_SHORT).show(); return }
+        try { InetAddress.getByName(ip) } catch (_: Exception) {
+            Toast.makeText(this, "آدرس IP معتبر نیست", Toast.LENGTH_SHORT).show(); return
+        }
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val current = (prefs.getString("custom_dns_servers", "8.8.8.8\\n1.1.1.1") ?: "").lines()
+            .map { it.trim() }.filter { it.isNotEmpty() }
+        if (ip !in current) prefs.edit().putString("custom_dns_servers", (current + ip).joinToString("\\n")).apply()
+        refreshDnsServers()
+        val items = (0 until spDnsServer.count).map { spDnsServer.getItemAtPosition(it).toString() }
+        spDnsServer.setSelection(items.indexOf(ip).coerceAtLeast(0))
+        etDnsServer.text.clear()
+        Toast.makeText(this, "DNS Server اضافه شد", Toast.LENGTH_SHORT).show()
+    }
+
     private fun runDnsLookup() {
         val domain = etDnsLookup.text.toString().trim().trimEnd('.')
         if (domain.isBlank() || !domain.contains(".")) {
-            Toast.makeText(this, "دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show()
-            return
+            Toast.makeText(this, "دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show(); return
         }
+        val server = spDnsServer.selectedItem?.toString() ?: return
         btnDnsLookup.isEnabled = false
-        tvDnsLookupResult.text = "در حال دریافت رکوردها از DNS-over-HTTPS…"
-        dnsGraph.values = emptyMap()
+        tvDnsLookupResult.text = "در حال ارسال درخواست مستقیم به $server:53 ..."
+        dnsChartsContainer.removeAllViews()
         lifecycleScope.launch {
             try {
                 val selected = spDnsType.selectedItem.toString()
-                val results = withContext(Dispatchers.IO) {
-                    if (selected == "تمام رکوردها") DnsLookup.queryAll(domain)
-                    else listOf(DnsLookup.query(domain, selected))
-                }
-                val counts = results.associate { it.type to it.answers.size }
-                dnsGraph.values = counts
-                tvDnsLookupResult.text = buildString {
-                    append("دامنه: $domain\n")
-                    append("حالت استعلام: $selected\n")
-                    append("زمان دریافت: ").append(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())).append("\n")
-                    results.forEach { result ->
-                        append("\n━━━━━━━━ ").append(result.type).append(" ━━━━━━━━\n")
-                        when {
-                            result.error != null -> append("خطا: ").append(result.error).append("\n")
-                            result.status == 0 && result.answers.isEmpty() -> append("رکوردی برای این نوع پیدا نشد.\n")
-                            result.answers.isNotEmpty() -> result.answers.forEach { answer ->
-                                append("• ").append(answer.value).append("\n")
-                                append("  TTL: ").append(answer.ttl).append(" ثانیه\n")
-                            }
-                            else -> append("DNS Status: ").append(result.status).append("\n")
+                val types = if (selected == "تمام رکوردها") DnsLookup.supportedTypes() else listOf(selected)
+                val samples = withContext(Dispatchers.IO) {
+                    types.map { type ->
+                        val points = ArrayList<Double>()
+                        var last: DnsResult? = null
+                        repeat(10) { n ->
+                            val started = System.nanoTime()
+                            last = DnsLookup.query(server, domain, type)
+                            val elapsed = (System.nanoTime() - started) / 1_000_000.0
+                            points.add(if (last?.error == null && last?.status != null) elapsed else -1.0)
+                            if (n < 9) Thread.sleep(800)
                         }
+                        Triple(type, points, last!!)
                     }
-                    append("\nمنبع: Cloudflare DNS-over-HTTPS")
                 }
+                val report = buildString {
+                    append("دامنه: $domain\\nDNS Server: $server:53\\nتعداد نمونه: ۱۰\\n")
+                    samples.forEach { (type, points, result) ->
+                        append("\\n━━━━ $type ━━━━\\n")
+                        append("موفق: ${points.count { it >= 0 }} از ۱۰ | ناموفق: ${points.count { it < 0 }}\\n")
+                        append("میانگین زمان پاسخ: ${if (points.any { it >= 0 }) String.format(Locale.US, "%.1f ms", points.filter { it >= 0 }.average()) else "بدون پاسخ"}\\n")
+                        if (result.answers.isNotEmpty()) result.answers.forEach { append("• ${it.value} (TTL ${it.ttl})\\n") }
+                        else append(if (result.error != null) "خطا: ${result.error}\\n" else "پاسخ بدون رکورد؛ RCODE=${result.status}\\n")
+                        val chart = DnsRecordGraphView(this@MainActivity).apply {
+                            recordName = type
+                            latencySamples = points
+                        }
+                        dnsChartsContainer.addView(chart, LinearLayout.LayoutParams(-1, (150 * resources.displayMetrics.density).toInt()).apply {
+                            bottomMargin = (10 * resources.displayMetrics.density).toInt()
+                        })
+                    }
+                }
+                tvDnsLookupResult.text = report
             } catch (e: Exception) {
-                tvDnsLookupResult.text = "خطا در استعلام DNS: ${e.message ?: e.javaClass.simpleName}"
+                tvDnsLookupResult.text = "خطا در تست DNS: ${e.message ?: e.javaClass.simpleName}"
             } finally { btnDnsLookup.isEnabled = true }
         }
     }
@@ -445,15 +489,18 @@ class MainActivity : AppCompatActivity() {
     // ───────── تنظیمات ─────────
     private fun loadSettings() {
         for ((k, id) in cfgFields) findViewById<EditText>(id).setText(Config.get(this, k))
+        cbSpeedTest.isChecked = getSharedPreferences("netq", MODE_PRIVATE).getBoolean("speed_test_enabled", false)
     }
 
     private fun saveSettings() {
         for ((k, id) in cfgFields) Config.put(this, k, findViewById<EditText>(id).text.toString())
-        Toast.makeText(this, "ذخیره شد", Toast.LENGTH_SHORT).show()
+        getSharedPreferences("netq", MODE_PRIVATE).edit().putBoolean("speed_test_enabled", cbSpeedTest.isChecked).apply()
+        Toast.makeText(this, "تنظیمات ذخیره شد", Toast.LENGTH_SHORT).show()
     }
 
     private fun resetSettings() {
         for ((k, _) in cfgFields) Config.reset(this, k)
+        getSharedPreferences("netq", MODE_PRIVATE).edit().putBoolean("speed_test_enabled", false).apply()
         loadSettings()
         Toast.makeText(this, "به پیش‌فرض برگشت", Toast.LENGTH_SHORT).show()
     }
@@ -638,7 +685,8 @@ class MainActivity : AppCompatActivity() {
 
                 // ۵) سرعت دانلود
                 val reachable = inetOk || siteRes.any { it.ok }
-                if (reachable && !captivePortal && speedUrls.isNotEmpty()) {
+                val speedEnabled = getSharedPreferences("netq", MODE_PRIVATE).getBoolean("speed_test_enabled", false)
+                if (speedEnabled && reachable && !captivePortal && speedUrls.isNotEmpty()) {
                     tvStatus.text = "⏳ در حال تست سرعت دانلود…"
                     var mbps: Double? = null
                     for (u in speedUrls) {
@@ -658,6 +706,9 @@ class MainActivity : AppCompatActivity() {
                         add("⬇️ سرعت دانلود: تست انجام نشد (سرور تست در دسترس نیست)")
                         issue(1, "تست سرعت انجام نشد؛ سرورهای تست مسدود یا در دسترس نیستند.")
                     }
+                } else if (!speedEnabled) {
+                    speedText = "غیرفعال (طبق تنظیمات)"
+                    add("⬇️ تست سرعت: اجرا نشد؛ این گزینه در تنظیمات غیرفعال است.")
                 }
             } catch (e: CancellationException) {
                 throw e
