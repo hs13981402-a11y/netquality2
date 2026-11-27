@@ -30,6 +30,10 @@ object Net {
 
     data class HopProbe(val ip: String?, val rtt: Double?, val reached: Boolean)
 
+    data class UdpLossResult(val sent: Int, val received: Int) {
+        val loss: Double get() = if (sent == 0) 100.0 else (sent - received) * 100.0 / sent
+    }
+
     // ───────── پینگ ─────────
     fun stats(host: String, sent: Int, t: List<Double>, method: String): PingResult {
         if (t.isEmpty()) return PingResult(host, sent, 0, 0.0, 0.0, 0.0, 0.0, method)
@@ -141,7 +145,7 @@ object Net {
         return if (t.isAlive) null else res
     }
 
-    fun dnsQuery(server: String, domain: String): Long? {
+    fun dnsQuery(server: String, domain: String, timeoutMs: Int = 2500): Long? {
         return try {
             val id = Random().nextInt(0xFFFF)
             val baos = ByteArrayOutputStream()
@@ -161,7 +165,7 @@ object Net {
             dos.writeShort(1)
             val data = baos.toByteArray()
             DatagramSocket().use { s ->
-                s.soTimeout = 2500
+                s.soTimeout = timeoutMs
                 val t0 = System.nanoTime()
                 s.send(DatagramPacket(data, data.size, InetAddress.getByName(server), 53))
                 val buf = ByteArray(512)
@@ -174,6 +178,43 @@ object Net {
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /** اندازه‌گیری پاسخ‌گویی پروب‌های UDP مبتنی بر DNS/53؛ وابسته به سرور و سرویس مقصد است. */
+    fun udpLossTest(server: String, domain: String, count: Int): UdpLossResult {
+        var received = 0
+        repeat(count) {
+            val result = dnsQuery(server, domain, 1200)
+            if (result != null && result >= 0) received++
+            if (it < count - 1) Thread.sleep(120)
+        }
+        return UdpLossResult(count, received)
+    }
+
+    /** آپلود آزمایشی HTTPS به endpoint عمومی Cloudflare؛ مقدار خروجی Mbps است. */
+    fun uploadTest(): Double? {
+        var connection: HttpURLConnection? = null
+        return try {
+            val payload = ByteArray(4 * 1024 * 1024)
+            Random().nextBytes(payload)
+            connection = URL("https://speed.cloudflare.com/__up").openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.connectTimeout = 7000
+            connection.readTimeout = 15000
+            connection.setRequestProperty("User-Agent", "NetQuality/1.0")
+            connection.setRequestProperty("Content-Type", "application/octet-stream")
+            connection.setFixedLengthStreamingMode(payload.size)
+            val start = System.nanoTime()
+            connection.outputStream.use { it.write(payload) }
+            val code = connection.responseCode
+            val seconds = (System.nanoTime() - start) / 1e9
+            if (code in 200..299 && seconds > 0) payload.size * 8.0 / seconds / 1_000_000.0 else null
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection?.disconnect()
         }
     }
 
