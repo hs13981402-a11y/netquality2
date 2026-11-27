@@ -7,48 +7,45 @@ import android.graphics.RectF
 import android.view.View
 import kotlin.math.max
 
-/** Compact per-test bar chart. Each metric is normalized against the same cross-test scale. */
-class TestComparisonGraphView(context: Context) : View(context) {
-    var metricLabels: List<String> = emptyList()
-        set(value) { field = value; invalidate() }
-    var metricValues: List<Double> = emptyList()
-        set(value) { field = value; invalidate() }
-    var metricScales: List<Double> = emptyList()
-        set(value) { field = value; invalidate() }
+data class ComparisonMetric(val label: String, val previous: Double?, val latest: Double?, val unit: String = "")
 
-    private val density = resources.displayMetrics.density
-    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF34495E.toInt()
-        textSize = 9f * resources.displayMetrics.scaledDensity
-    }
-    private val bar = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF0E9F9A.toInt() }
-    private val grid = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFE5EBF2.toInt(); strokeWidth = density }
-    private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF17324D.toInt()
-        textSize = 9f * resources.displayMetrics.scaledDensity
-        typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-    }
+class TestComparisonGraphView(context: Context) : View(context) {
+    var comparisonMetrics: List<ComparisonMetric> = emptyList()
+        set(value) { field = value; invalidate() }
+    private val d = resources.displayMetrics.density
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF263E56.toInt(); textSize = 11f * resources.displayMetrics.scaledDensity }
+    private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF52677C.toInt(); textSize = 9f * resources.displayMetrics.scaledDensity }
+    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFE8EEF4.toInt(); strokeWidth = d }
+    private val oldPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF4387D8.toInt() }
+    private val newPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF11A69C.toInt() }
+    private val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val left = 8f * density
-        val right = width - 8f * density
-        val top = 12f * density
-        val rowHeight = 66f * density
-        metricLabels.forEachIndexed { index, label ->
-            val y = top + index * rowHeight
-            canvas.drawText(label.take(15), left, y + 10f * density, text)
-            val scale = max(1.0, metricScales.getOrElse(index) { 1.0 })
-            val value = metricValues.getOrElse(index) { 0.0 }.coerceAtLeast(0.0)
-            val barTop = y + 18f * density
-            val barWidth = (right - left).coerceAtLeast(1f)
-            canvas.drawRoundRect(RectF(left, barTop, right, barTop + 12f * density), 5f, 5f, grid)
-            val ratio = (value / scale).toFloat().coerceIn(0f, 1f)
-            bar.color = 0xFF0E9F9A.toInt()
-            canvas.drawRoundRect(RectF(left, barTop, left + barWidth * ratio, barTop + 12f * density), 5f, 5f, bar)
-            canvas.drawText(String.format(java.util.Locale.US, "%.1f", value), left, barTop + 27f * density, valuePaint)
-            canvas.drawLine(left, y + 48f * density, right, y + 48f * density, grid)
+        val left = 12*d; val right = width - 12*d; val rowH = 62*d; val top = 48*d
+        canvas.drawRoundRect(RectF(2*d,2*d,width-2*d,height-2*d),16*d,16*d,cardPaint)
+        canvas.drawCircle(left+4*d,18*d,4*d,oldPaint)
+        canvas.drawCircle(left+104*d,18*d,4*d,newPaint)
+        valuePaint.textSize = 10*d
+        canvas.drawText("تست قبلی",left+13*d,21*d,valuePaint)
+        canvas.drawText("تست جدید",left+113*d,21*d,valuePaint)
+        comparisonMetrics.forEachIndexed { index, metric ->
+            val y = top + index*rowH
+            if (y+rowH > height) return@forEachIndexed
+            labelPaint.textSize = 10.5*d
+            canvas.drawText(metric.label.take(26),left,y+10*d,labelPaint)
+            val maxValue = max(1.0,max(metric.previous ?: 0.0,metric.latest ?: 0.0))
+            val barWidth = max(1f,right-left)
+            val oldY=y+18*d; val newY=y+34*d
+            canvas.drawRoundRect(RectF(left,oldY,right,oldY+7*d),4*d,4*d,gridPaint)
+            canvas.drawRoundRect(RectF(left,newY,right,newY+7*d),4*d,4*d,gridPaint)
+            metric.previous?.let { canvas.drawRoundRect(RectF(left,oldY,left+barWidth*(it.coerceAtLeast(0.0)/maxValue).toFloat(),oldY+7*d),4*d,4*d,oldPaint) }
+            metric.latest?.let { canvas.drawRoundRect(RectF(left,newY,left+barWidth*(it.coerceAtLeast(0.0)/maxValue).toFloat(),newY+7*d),4*d,4*d,newPaint) }
+            valuePaint.textSize=8.5*d
+            val suffix=if(metric.unit.isBlank()) "" else " ${metric.unit}"
+            canvas.drawText("قبلی: "+(metric.previous?.let{String.format(java.util.Locale.US,"%.2f",it)} ?: "—")+suffix,left,y+54*d,valuePaint)
+            canvas.drawText("جدید: "+(metric.latest?.let{String.format(java.util.Locale.US,"%.2f",it)} ?: "—")+suffix,left+barWidth*0.52f,y+54*d,valuePaint)
+            canvas.drawLine(left,y+rowH-2*d,right,y+rowH-2*d,gridPaint)
         }
-        if (metricLabels.isEmpty()) canvas.drawText("داده‌ای برای نمودار موجود نیست", left, 30f * density, text)
     }
 }
