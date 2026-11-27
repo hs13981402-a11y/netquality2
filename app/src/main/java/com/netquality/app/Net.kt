@@ -224,10 +224,6 @@ object Net {
         return IperfUdpResult(host, port, bitrate, sent, lost, loss, jitter, mbps)
     }
 
-    data class UdpLossResult(val sent: Int, val received: Int) {
-        val loss: Double get() = if (sent == 0) 100.0 else (sent - received) * 100.0 / sent
-    }
-
     fun udpLossTest(server: String, domain: String, count: Int): UdpLossResult {
         var received = 0
         repeat(count) {
