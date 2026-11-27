@@ -16,6 +16,6 @@
     </string-array>
     <string-array name="dns_record_types">
         <item>A</item><item>AAAA</item><item>MX</item><item>NS</item>
-        <item>TXT</item><item>CNAME</item><item>SOA</item>
+        <item>TXT</item><item>CNAME</item><item>SOA</item><item>تمام رکوردها</item>
     </string-array>
 </resources>
