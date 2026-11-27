@@ -376,28 +376,28 @@ class MainActivity : AppCompatActivity() {
             Triple("سرعت دانلود", "speed", false)
         )
         val report = buildString {
-            append("مقایسه آخرین تست ذخیره‌شده هر اپراتور\\n")
-            append("تعداد اپراتورهای مقایسه‌شده: ${latest.size}\\n")
+            append("مقایسه آخرین تست ذخیره‌شده هر اپراتور\n")
+            append("تعداد اپراتورهای مقایسه‌شده: ${latest.size}\n")
             latest.forEach { (op, item) ->
-                append("\\n━━━━━━━━ $op ━━━━━━━━\\n")
-                append("زمان: ${item.optString("time")} | شبکه: ${item.optString("network")}\\n")
-                append("Ping: ${item.optString("ping")} | Loss: ${item.optString("loss")} | Speed: ${item.optString("speed")}\\n")
-                append("ارزیابی: ${item.optString("verdict")}\\n")
+                append("\n━━━━━━━━ $op ━━━━━━━━\n")
+                append("زمان: ${item.optString("time")} | شبکه: ${item.optString("network")}\n")
+                append("Ping: ${item.optString("ping")} | Loss: ${item.optString("loss")} | Speed: ${item.optString("speed")}\n")
+                append("ارزیابی: ${item.optString("verdict")}\n")
                 val lines = item.optString("report").lines().filter { it.contains("❌") || it.contains("⚠️") }
-                append("موارد قابل توجه: ${if (lines.isEmpty()) "مورد هشدار ثبت نشده" else lines.take(8).joinToString("؛ ")}\\n")
+                append("موارد قابل توجه: ${if (lines.isEmpty()) "مورد هشدار ثبت نشده" else lines.take(8).joinToString("؛ ")}\n")
             }
-            append("\\n━━━━━━━━ جمع‌بندی شاخص‌ها ━━━━━━━━\\n")
+            append("\n━━━━━━━━ جمع‌بندی شاخص‌ها ━━━━━━━━\n")
             metrics.forEach { (label,key,lowerBetter) ->
                 val valid = latest.mapNotNull { (op,item) -> value(item,key)?.let { op to it } }
-                if (valid.isEmpty()) append("$label: داده عددی کافی وجود ندارد\\n")
+                if (valid.isEmpty()) append("$label: داده عددی کافی وجود ندارد\n")
                 else {
                     val best = if (lowerBetter) valid.minBy { it.second } else valid.maxBy { it.second }
-                    append("بهترین $label: ${best.first} (${String.format(Locale.US,"%.2f",best.second)})\\n")
-                    valid.forEach { (op,v) -> append("  • $op: ${String.format(Locale.US,"%.2f",v)}\\n") }
+                    append("بهترین $label: ${best.first} (${String.format(Locale.US,"%.2f",best.second)})\n")
+                    valid.forEach { (op,v) -> append("  • $op: ${String.format(Locale.US,"%.2f",v)}\n") }
                 }
             }
-            append("\\nپیشنهاد: اپراتوری برتر است که هم‌زمان تأخیر و Packet Loss کمتر، سرعت بالاتر و هشدارهای عملیاتی کمتری داشته باشد. اگر شاخص‌ها بین اپراتورها تقسیم شده باشند، نتیجه نهایی «ترکیبی» است و باید بر اساس نوع استفاده انتخاب شود.")
-            append("\\n\\nنکته: مقایسه فقط بر اساس داده‌های واقعاً ثبت‌شده انجام شده؛ تست‌ها بهتر است با مقصدها و تنظیمات یکسان و در بازه زمانی نزدیک اجرا شوند.")
+            append("\nپیشنهاد: اپراتوری برتر است که هم‌زمان تأخیر و Packet Loss کمتر، سرعت بالاتر و هشدارهای عملیاتی کمتری داشته باشد. اگر شاخص‌ها بین اپراتورها تقسیم شده باشند، نتیجه نهایی «ترکیبی» است و باید بر اساس نوع استفاده انتخاب شود.")
+            append("\n\nنکته: مقایسه فقط بر اساس داده‌های واقعاً ثبت‌شده انجام شده؛ تست‌ها بهتر است با مقصدها و تنظیمات یکسان و در بازه زمانی نزدیک اجرا شوند.")
         }
         AlertDialog.Builder(this).setTitle("تحلیل و مقایسه اپراتورها").setMessage(report)
             .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
@@ -436,7 +436,7 @@ class MainActivity : AppCompatActivity() {
             .setTitle("مدیریت $selected")
             .setItems(arrayOf("ویرایش آدرس", "حذف سرور")) { _, which ->
                 val prefs = getSharedPreferences("netq", MODE_PRIVATE)
-                val current = (prefs.getString("custom_dns_servers", "8.8.8.8\\n1.1.1.1") ?: "")
+                val current = (prefs.getString("custom_dns_servers", "8.8.8.8\n1.1.1.1") ?: "")
                     .lines().map { it.trim() }.filter { it.isNotEmpty() }
                 if (which == 0) {
                     val input = EditText(this).apply {
@@ -454,7 +454,7 @@ class MainActivity : AppCompatActivity() {
                                 Toast.makeText(this, "آدرس IP معتبر نیست", Toast.LENGTH_SHORT).show()
                             } else {
                                 val revised = current.map { if (it == selected) updated else it }.distinct()
-                                prefs.edit().putString("custom_dns_servers", revised.joinToString("\\n")).apply()
+                                prefs.edit().putString("custom_dns_servers", revised.joinToString("\n")).apply()
                                 refreshDnsServers()
                                 val index = (0 until spDnsServer.count).indexOfFirst { spDnsServer.getItemAtPosition(it).toString() == updated }
                                 if (index >= 0) spDnsServer.setSelection(index)
@@ -465,7 +465,7 @@ class MainActivity : AppCompatActivity() {
                         .setMessage("سرور $selected از فهرست حذف شود؟")
                         .setNegativeButton("انصراف", null)
                         .setPositiveButton("حذف") { _, _ ->
-                            prefs.edit().putString("custom_dns_servers", current.filterNot { it == selected }.joinToString("\\n")).apply()
+                            prefs.edit().putString("custom_dns_servers", current.filterNot { it == selected }.joinToString("\n")).apply()
                             refreshDnsServers()
                         }.show()
                 }
@@ -509,13 +509,13 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 val report = buildString {
-                    append("دامنه: $domain\\nDNS Server: $server:53\\nتعداد نمونه: ۱۰\\n")
+                    append("دامنه: $domain\nDNS Server: $server:53\nتعداد نمونه: ۱۰\n")
                     samples.forEach { (type, points, result) ->
-                        append("\\n━━━━ $type ━━━━\\n")
-                        append("موفق: ${points.count { it >= 0 }} از ۱۰ | ناموفق: ${points.count { it < 0 }}\\n")
-                        append("میانگین زمان پاسخ: ${if (points.any { it >= 0 }) String.format(Locale.US, "%.1f ms", points.filter { it >= 0 }.average()) else "بدون پاسخ"}\\n")
-                        if (result.answers.isNotEmpty()) result.answers.forEach { append("• ${it.value} (TTL ${it.ttl})\\n") }
-                        else append(if (result.error != null) "خطا: ${result.error}\\n" else "پاسخ بدون رکورد؛ RCODE=${result.status}\\n")
+                        append("\n━━━━ $type ━━━━\n")
+                        append("موفق: ${points.count { it >= 0 }} از ۱۰ | ناموفق: ${points.count { it < 0 }}\n")
+                        append("میانگین زمان پاسخ: ${if (points.any { it >= 0 }) String.format(Locale.US, "%.1f ms", points.filter { it >= 0 }.average()) else "بدون پاسخ"}\n")
+                        if (result.answers.isNotEmpty()) result.answers.forEach { append("• ${it.value} (TTL ${it.ttl})\n") }
+                        else append(if (result.error != null) "خطا: ${result.error}\n" else "پاسخ بدون رکورد؛ RCODE=${result.status}\n")
                         val chart = DnsRecordGraphView(this@MainActivity).apply {
                             recordName = type
                             latencySamples = points
@@ -1137,7 +1137,7 @@ class MainActivity : AppCompatActivity() {
         graphLarge.data = selected.hist.toList()
         graphJitter.data = selected.jitterHist.toList()
         graphLoss.data = selected.lossHist.toList()
-        lastPlotReport = header + "\\n" + table + "\\nPing: ${f0(selected.avg)} ms | Jitter لحظه‌ای: ${f0(selected.jitterHist.lastOrNull() ?: 0.0)} ms | Packet Loss: ${f1(selected.loss)}%"
+        lastPlotReport = header + "\n" + table + "\nPing: ${f0(selected.avg)} ms | Jitter لحظه‌ای: ${f0(selected.jitterHist.lastOrNull() ?: 0.0)} ms | Packet Loss: ${f1(selected.loss)}%"
     }
 
     private fun spark(h: List<Double>): String {
