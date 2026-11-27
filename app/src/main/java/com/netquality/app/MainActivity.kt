@@ -104,7 +104,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spFilterOperator: Spinner
     private lateinit var spFilterCompareA: Spinner
     private lateinit var spFilterCompareB: Spinner
-    private lateinit var dnsGraph: DnsGraphView
     private lateinit var etDnsServer: EditText
     private lateinit var spDnsServer: Spinner
     private lateinit var dnsChartsContainer: LinearLayout
