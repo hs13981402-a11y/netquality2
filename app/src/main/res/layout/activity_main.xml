@@ -3,12 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:layoutDirection="rtl"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="#F3F6FB">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:background="#10243A"
+        android:padding="6dp">
 
         <Button
             android:id="@+id/tabTest"
@@ -16,7 +19,10 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="تست کامل"
-            android:textSize="13sp" />
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#1E4966"
+            android:minHeight="48dp" />
 
         <Button
             android:id="@+id/tabPlot"
@@ -24,7 +30,10 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="تریس / پلاتر"
-            android:textSize="13sp" />
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#1E4966"
+            android:minHeight="48dp" />
 
         <Button
             android:id="@+id/tabChart"
@@ -32,7 +41,21 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="نمودار"
-            android:textSize="11sp" />
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#1E4966"
+            android:minHeight="48dp" />
+
+        <Button
+            android:id="@+id/tabFilter"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="فیلترینگ"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#087E8B"
+            android:minHeight="48dp" />
 
         <Button
             android:id="@+id/tabSettings"
@@ -40,7 +63,10 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="تنظیمات"
-            android:textSize="11sp" />
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#1E4966"
+            android:minHeight="48dp" />
     </LinearLayout>
 
     <FrameLayout
@@ -58,7 +84,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="18dp">
 
                 <TextView
                     android:id="@+id/tvStatus"
@@ -66,10 +92,11 @@
                     android:layout_height="wrap_content"
                     android:background="@drawable/panel_card"
                     android:padding="16dp"
-                    android:layout_marginBottom="10dp"
+                    android:layout_marginBottom="14dp"
                     android:text="برای شروع، دکمه‌ی تست را بزنید"
                     android:textColor="#111111"
-                    android:textSize="16sp" />
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
 
                 <CheckBox
                     android:id="@+id/cbAuto"
@@ -101,8 +128,10 @@
                     android:textIsSelectable="true"
                     android:background="@drawable/report_card"
                     android:padding="14dp"
-                    android:lineSpacingExtra="5dp"
-                    android:textSize="15sp" />
+                    android:lineSpacingExtra="8dp"
+                    android:lineSpacingMultiplier="1.12"
+                    android:textSize="15sp"
+                    android:fontFamily="sans"/>
 
                 <Button
                     android:id="@+id/btnShareTest"
@@ -130,7 +159,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="18dp">
 
                 <EditText
                     android:id="@+id/etHost"
@@ -245,7 +274,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="18dp">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -297,6 +326,89 @@
             </LinearLayout>
         </ScrollView>
 
+        <!-- ───────── پنل تشخیص محدودیت دسترسی ───────── -->
+        <ScrollView
+            android:id="@+id/panelFilter"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="تشخیص محدودیت دسترسی"
+                    android:textColor="#102A43"
+                    android:textSize="21sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="آزمون DNS، اتصال TCP/443 و پاسخ HTTPS؛ نتیجه احتمالی است و به‌تنهایی اثبات فیلترینگ نیست."
+                    android:textColor="#526579"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="دامنه‌های آماده"
+                    android:textColor="#17324D"
+                    android:textStyle="bold" />
+                <Spinner
+                    android:id="@+id/spFilterSite"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:entries="@array/filter_sites" />
+                <EditText
+                    android:id="@+id/etFilterDomain"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="10dp"
+                    android:hint="یا دامنه دلخواه مثل example.com"
+                    android:inputType="textUri"
+                    android:singleLine="true"
+                    android:layoutDirection="ltr"
+                    android:textDirection="ltr"
+                    android:padding="12dp"
+                    android:background="@drawable/input_card" />
+                <Button
+                    android:id="@+id/btnFilterCheck"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="14dp"
+                    android:text="شروع بررسی دسترسی"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#087E8B" />
+                <ProgressBar
+                    android:id="@+id/filterProgress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:indeterminate="true"
+                    android:visibility="gone" />
+                <TextView
+                    android:id="@+id/tvFilterResult"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:padding="18dp"
+                    android:background="@drawable/report_card"
+                    android:text="نتیجه آزمون در این قسمت نمایش داده می‌شود. برای مقایسه اپراتورها، همین تست را روی هر اتصال جداگانه اجرا کنید."
+                    android:textColor="#243B53"
+                    android:textSize="15sp"
+                    android:lineSpacingExtra="7dp"
+                    android:textIsSelectable="true" />
+            </LinearLayout>
+        </ScrollView>
+
         <!-- ───────── پنل تنظیمات ───────── -->
         <ScrollView
             android:id="@+id/panelSettings"
@@ -308,7 +420,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="18dp">
 
                 <TextView
                     android:layout_width="match_parent"

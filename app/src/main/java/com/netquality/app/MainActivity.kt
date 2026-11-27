@@ -15,6 +15,7 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.RadioButton
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -87,6 +88,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var panelPlot: View
     private lateinit var panelSettings: View
     private lateinit var panelChart: View
+    private lateinit var panelFilter: View
+    private lateinit var etFilterDomain: EditText
+    private lateinit var spFilterSite: Spinner
+    private lateinit var tvFilterResult: TextView
+    private lateinit var filterProgress: ProgressBar
+    private lateinit var btnFilterCheck: Button
 
     private lateinit var tvStatus: TextView
     private lateinit var tvLog: TextView
@@ -147,6 +154,12 @@ class MainActivity : AppCompatActivity() {
         panelPlot = findViewById(R.id.panelPlot)
         panelSettings = findViewById(R.id.panelSettings)
         panelChart = findViewById(R.id.panelChart)
+        panelFilter = findViewById(R.id.panelFilter)
+        etFilterDomain = findViewById(R.id.etFilterDomain)
+        spFilterSite = findViewById(R.id.spFilterSite)
+        tvFilterResult = findViewById(R.id.tvFilterResult)
+        filterProgress = findViewById(R.id.filterProgress)
+        btnFilterCheck = findViewById(R.id.btnFilterCheck)
 
         tvStatus = findViewById(R.id.tvStatus)
         tvLog = findViewById(R.id.tvLog)
@@ -180,6 +193,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabTest).setOnClickListener { showPanel(0) }
         findViewById<Button>(R.id.tabPlot).setOnClickListener { showPanel(1) }
         findViewById<Button>(R.id.tabSettings).setOnClickListener { showPanel(2) }
+        findViewById<Button>(R.id.tabFilter).setOnClickListener { showPanel(4) }
+        btnFilterCheck.setOnClickListener { checkFilterAccess() }
         findViewById<Button>(R.id.tabChart).setOnClickListener { showPanel(3) }
 
         btnStart.setOnClickListener { runTest() }
@@ -218,6 +233,64 @@ class MainActivity : AppCompatActivity() {
         panelPlot.visibility = if (i == 1) View.VISIBLE else View.GONE
         panelSettings.visibility = if (i == 2) View.VISIBLE else View.GONE
         panelChart.visibility = if (i == 3) View.VISIBLE else View.GONE
+        panelFilter.visibility = if (i == 4) View.VISIBLE else View.GONE
+    }
+
+    private fun checkFilterAccess() {
+        val presets = listOf("facebook.com", "instagram.com", "youtube.com", "t.me", "x.com", "whatsapp.com", "google.com")
+        val custom = etFilterDomain.text.toString().trim()
+            .removePrefix("https://").removePrefix("http://").substringBefore("/")
+        val domain = if (custom.isNotBlank()) custom else presets.getOrElse(spFilterSite.selectedItemPosition) { presets.first() }
+        if (domain.isBlank() || !domain.contains(".")) {
+            Toast.makeText(this, "یک دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show()
+            return
+        }
+        btnFilterCheck.isEnabled = false
+        filterProgress.visibility = View.VISIBLE
+        tvFilterResult.text = "در حال بررسی $domain …\nلطفاً تا پایان آزمون صبر کنید."
+        lifecycleScope.launch {
+            try {
+                val dnsMs = withContext(Dispatchers.IO) {
+                    try {
+                        val start = System.nanoTime()
+                        InetAddress.getAllByName(domain)
+                        (System.nanoTime() - start) / 1_000_000
+                    } catch (_: Exception) { null }
+                }
+                val targetTcp = withContext(Dispatchers.IO) { Net.tcpOnce(domain, 443, 5000) }
+                val controlTcp = withContext(Dispatchers.IO) { Net.tcpOnce("1.1.1.1", 443, 5000) }
+                val https = withContext(Dispatchers.IO) { Net.httpCheck("https://$domain", false) }
+                val verdict = when {
+                    https.code != null && https.code in 200..399 -> "قابل دسترس"
+                    dnsMs == null && controlTcp != null -> "احتمال اختلال یا محدودیت DNS"
+                    targetTcp == null && controlTcp != null -> "احتمال محدودیت اختصاصی مقصد یا مسیر دسترسی"
+                    targetTcp != null && https.code == null -> "TCP برقرار است؛ مشکل در TLS یا لایه HTTPS محتمل است"
+                    https.code == 403 || https.code == 451 -> "پاسخ محدودکننده HTTP دریافت شد؛ علت می‌تواند سیاست سرور یا فیلترینگ باشد"
+                    else -> "نتیجه نامشخص؛ شواهد برای تشخیص فیلترینگ کافی نیست"
+                }
+                val colorHint = when {
+                    https.code != null && https.code in 200..399 -> "وضعیت: قابل دسترس"
+                    dnsMs == null || targetTcp == null -> "وضعیت: نیازمند بررسی"
+                    else -> "وضعیت: اختلال در لایه بالاتر"
+                }
+                tvFilterResult.text = buildString {
+                    append("دامنه: $domain\n\n")
+                    append("نتیجه: $verdict\n\n")
+                    append("DNS: ").append(dnsMs?.let { "موفق (${it}ms)" } ?: "ناموفق").append("\n")
+                    append("TCP/443 مقصد: ").append(targetTcp?.let { "موفق (${f0(it)}ms)" } ?: "ناموفق").append("\n")
+                    append("TCP/443 مقصد کنترلی 1.1.1.1: ").append(controlTcp?.let { "موفق (${f0(it)}ms)" } ?: "ناموفق").append("\n")
+                    append("HTTPS: ").append(https.code?.toString() ?: "بدون پاسخ (${https.err ?: "خطا"})").append("\n")
+                    append("زمان پاسخ HTTPS: ${https.ms}ms\n\n")
+                    append("تفسیر: $colorHint\n\n")
+                    append("توجه: موفق بودن Ping یا TCP به معنی نبود فیلترینگ نیست. این آزمون فقط از اتصال فعلی گوشی استفاده می‌کند. برای مقایسه، آن را روی اینترنت مخابرات، همراه اول و سایر اپراتورها جداگانه اجرا کنید. نتیجه قطعی فیلترینگ فقط با مقایسه چند مسیر و بررسی دقیق‌تر قابل اعلام است.")
+                }
+            } catch (e: Exception) {
+                tvFilterResult.text = "خطا در اجرای آزمون: ${e.message ?: e.javaClass.simpleName}"
+            } finally {
+                filterProgress.visibility = View.GONE
+                btnFilterCheck.isEnabled = true
+            }
+        }
     }
 
     private fun share(text: String) {
