@@ -23,12 +23,14 @@ class GraphView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private val maxPoints = 150
     private val density = resources.displayMetrics.density
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF1479C9.toInt(); strokeWidth = 2.5f * density
+        color = 0xFF087E8B.toInt(); strokeWidth = 3f * density
         style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     }
     private val lossPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFD64545.toInt(); strokeWidth = 2f * density; style = Paint.Style.STROKE
     }
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x33087E8B; style = Paint.Style.FILL }
+    private val pointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF087E8B.toInt(); style = Paint.Style.FILL }
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFE4EAF0.toInt(); strokeWidth = 1f * density
     }
@@ -45,7 +47,7 @@ class GraphView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         val d = data.takeLast(maxPoints)
         val w = width.toFloat(); val h = height.toFloat()
         val left = 42f * density; val right = 12f * density
-        val top = 54f * density; val bottom = 24f * density
+        val top = 58f * density; val bottom = 28f * density
         val plotW = (w - left - right).coerceAtLeast(1f)
         val plotH = (h - top - bottom).coerceAtLeast(1f)
         canvas.drawText("$chartTitle ($chartUnit)", left, 19f * density, titlePaint)
@@ -70,17 +72,36 @@ class GraphView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         }
         val step = plotW / (maxPoints - 1).toFloat()
         val offset = maxPoints - d.size
+        val path = Path()
+        val area = Path()
         var previousX = -1f; var previousY = -1f
+        var areaStarted = false
         d.forEachIndexed { index, value ->
             val x = left + step * (index + offset)
             if (value < 0.0) {
                 canvas.drawLine(x, top, x, top + plotH, lossPaint)
                 previousX = -1f
+                areaStarted = false
             } else {
                 val y = top + plotH - (value / maxValue).toFloat() * plotH
-                if (previousX >= 0f) canvas.drawLine(previousX, previousY, x, y, linePaint)
+                if (previousX < 0f) {
+                    path.moveTo(x, y)
+                    area.moveTo(x, top + plotH)
+                    area.lineTo(x, y)
+                    areaStarted = true
+                } else {
+                    path.lineTo(x, y)
+                    if (areaStarted) area.lineTo(x, y)
+                }
                 previousX = x; previousY = y
+                if (index == d.lastIndex && areaStarted) {
+                    area.lineTo(x, top + plotH)
+                    area.close()
+                }
             }
         }
+        canvas.drawPath(area, fillPaint)
+        canvas.drawPath(path, linePaint)
+        if (previousX >= 0f) canvas.drawCircle(previousX, previousY, 3.5f * density, pointPaint)
     }
 }
