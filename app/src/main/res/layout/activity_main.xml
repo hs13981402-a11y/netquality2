@@ -127,6 +127,19 @@
                 android:insetBottom="0dp" />
 
             <Button
+                android:id="@+id/tabPacketLoss"
+                android:layout_width="wrap_content"
+                android:layout_height="42dp"
+                android:layout_marginEnd="6dp"
+                android:minWidth="92dp"
+                android:text="Packet Loss"
+                android:textSize="12sp"
+                android:textColor="#DCE8F4"
+                android:backgroundTint="#263858"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+
+            <Button
                 android:id="@+id/tabSettings"
                 android:layout_width="wrap_content"
                 android:layout_height="42dp"
@@ -740,6 +753,154 @@
                     android:lineSpacingExtra="6dp"
                     android:textIsSelectable="true"
                     android:elevation="1dp"/>
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ───────── پنل اختصاصی Packet Loss ───────── -->
+        <ScrollView
+            android:id="@+id/panelPacketLoss"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:fillViewport="true">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Packet Loss Lab"
+                    android:textColor="#102A43"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="سه روش مستقل برای بررسی افت بسته؛ نتایج هر آزمون جداگانه ثبت می‌شوند."
+                    android:textColor="#607080"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:background="@drawable/panel_card">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="۱. Packet Loss در UDP"
+                        android:textColor="#17324D"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:text="ارسال ۳۰ پروب DNS روی UDP/53 به سرور 1.1.1.1 و محاسبه درصد پاسخ‌های ازدست‌رفته."
+                        android:textColor="#607080"
+                        android:textSize="12sp" />
+                    <Button
+                        android:id="@+id/btnUdpLoss"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:layout_marginTop="10dp"
+                        android:text="اجرای تست UDP"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#17324D" />
+                    <TextView
+                        android:id="@+id/tvUdpLossResult"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:padding="12dp"
+                        android:background="@drawable/report_card"
+                        android:text="نتیجه تست UDP هنوز ثبت نشده است."
+                        android:textColor="#243B53"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:background="@drawable/panel_card">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="۲. افت پروب UDP حین Upload"
+                        android:textColor="#17324D"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:text="هم‌زمان با آپلود آزمایشی، پاسخ‌گویی پروب‌های UDP بررسی می‌شود. این عدد Packet Loss خود جریان آپلود نیست."
+                        android:textColor="#607080"
+                        android:textSize="12sp" />
+                    <Button
+                        android:id="@+id/btnUploadLoss"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:layout_marginTop="10dp"
+                        android:text="اجرای تست UDP زیر بار آپلود"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#0E9F9A" />
+                    <TextView
+                        android:id="@+id/tvUploadLossResult"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:padding="12dp"
+                        android:background="@drawable/report_card"
+                        android:text="نتیجه تست زیر بار آپلود هنوز ثبت نشده است."
+                        android:textColor="#243B53"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:background="@drawable/panel_card">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="۳. آزمون تکمیلی WebRTC"
+                        android:textColor="#17324D"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:text="آزمون PacketLossTest برای بررسی جداگانه افت بسته در Upload و Download، به‌همراه Latency و Jitter."
+                        android:textColor="#607080"
+                        android:textSize="12sp" />
+                    <Button
+                        android:id="@+id/btnReloadPacketLossWeb"
+                        android:layout_width="match_parent"
+                        android:layout_height="46dp"
+                        android:layout_marginTop="10dp"
+                        android:text="بارگذاری مجدد آزمون"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#17324D" />
+                    <WebView
+                        android:id="@+id/webPacketLoss"
+                        android:layout_width="match_parent"
+                        android:layout_height="620dp"
+                        android:layout_marginTop="10dp" />
+                </LinearLayout>
             </LinearLayout>
         </ScrollView>
 
