@@ -366,7 +366,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         fun value(o: JSONObject, key: String): Double? =
-            Regex("-?\\\\d+(?:\\\\.\\\\d+)?").find(o.optString(key))?.value?.toDoubleOrNull()
+            Regex("-?[0-9]+([.][0-9]+)?").find(o.optString(key))?.value?.toDoubleOrNull()
         val metrics = listOf(
             Triple("Ping", "ping", true), Triple("Packet Loss", "loss", true),
             Triple("سرعت دانلود", "speed", false)
