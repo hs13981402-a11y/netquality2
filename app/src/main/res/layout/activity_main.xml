@@ -530,18 +530,59 @@
                     android:textDirection="ltr"
                     android:padding="12dp"
                     android:background="@drawable/input_card" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="DNS Server انتخابی"
+                    android:textStyle="bold"
+                    android:textColor="#17324D" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <EditText
+                        android:id="@+id/etDnsServer"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:hint="IP سرور DNS مثل 192.168.1.1"
+                        android:inputType="textUri"
+                        android:singleLine="true"
+                        android:layoutDirection="ltr"
+                        android:textDirection="ltr"
+                        android:padding="10dp"
+                        android:background="@drawable/input_card" />
+                    <Button
+                        android:id="@+id/btnAddDnsServer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:text="افزودن"
+                        android:minWidth="72dp" />
+                </LinearLayout>
+                <Spinner
+                    android:id="@+id/spDnsServer"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp" />
                 <Spinner
                     android:id="@+id/spDnsType"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:entries="@array/dns_record_types" />
-                <com.netquality.app.DnsGraphView
-                    android:id="@+id/dnsGraph"
+                <TextView
                     android:layout_width="match_parent"
-                    android:layout_height="210dp"
-                    android:layout_marginTop="14dp"
-                    android:padding="8dp"
-                    android:background="@drawable/report_card" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="پایش پاسخ رکوردها (۱۰ نمونه متوالی)"
+                    android:textStyle="bold"
+                    android:textColor="#17324D" />
+                <LinearLayout
+                    android:id="@+id/dnsChartsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="8dp" />
                 <Button
                     android:id="@+id/btnDnsLookup"
                     android:layout_width="match_parent"
@@ -697,6 +738,19 @@
                 android:textDirection="ltr"
                 android:textSize="13sp" />
 
+                <CheckBox
+                    android:id="@+id/cbSpeedTest"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:checked="false"
+                    android:text="اجرای تست سرعت دانلود در تست کامل" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="در حالت خاموش، تست کامل بدون دانلود فایل حجیم اجرا می‌شود."
+                    android:textColor="#607080"
+                    android:textSize="12sp" />
                 <Button
                     android:id="@+id/btnSave"
                     android:layout_width="match_parent"
