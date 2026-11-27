@@ -181,41 +181,52 @@ object Net {
         }
     }
 
-    /** اندازه‌گیری پاسخ‌گویی پروب‌های UDP مبتنی بر DNS/53؛ وابسته به سرور و سرویس مقصد است. */
-    fun udpLossTest(server: String, domain: String, count: Int): UdpLossResult {
-        var received = 0
-        repeat(count) {
-            val result = dnsQuery(server, domain, 1200)
-            if (result != null && result >= 0) received++
-            if (it < count - 1) Thread.sleep(120)
-        }
-        return UdpLossResult(count, received)
-    }
+    data class IperfUdpResult(
+        val host: String, val port: Int, val bitrate: String,
+        val sentPackets: Long, val lostPackets: Long, val lossPercent: Double,
+        val jitterMs: Double, val throughputMbps: Double
+    )
 
-    /** آپلود آزمایشی HTTPS به endpoint عمومی Cloudflare؛ مقدار خروجی Mbps است. */
-    fun uploadTest(): Double? {
-        var connection: HttpURLConnection? = null
-        return try {
-            val payload = ByteArray(4 * 1024 * 1024)
-            Random().nextBytes(payload)
-            connection = URL("https://speed.cloudflare.com/__up").openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.doOutput = true
-            connection.connectTimeout = 7000
-            connection.readTimeout = 15000
-            connection.setRequestProperty("User-Agent", "NetQuality/1.0")
-            connection.setRequestProperty("Content-Type", "application/octet-stream")
-            connection.setFixedLengthStreamingMode(payload.size)
-            val start = System.nanoTime()
-            connection.outputStream.use { it.write(payload) }
-            val code = connection.responseCode
-            val seconds = (System.nanoTime() - start) / 1e9
-            if (code in 200..299 && seconds > 0) payload.size * 8.0 / seconds / 1_000_000.0 else null
-        } catch (_: Exception) {
-            null
-        } finally {
-            connection?.disconnect()
+    /** اجرای iperf3 واقعی روی باینری Android arm64 بسته‌بندی‌شده در nativeLibraryDir. */
+    fun iperfUdpTest(host: String, port: Int, bitrate: String, durationSeconds: Int = 10): IperfUdpResult {
+        val binary = java.io.File(
+            android.os.BuildConfig.APPLICATION_ID.let { appId ->
+                // nativeLibraryDir points to the extracted executable packaged as a native asset.
+                // The path is supplied by the caller through the system property below.
+                System.getProperty("netquality.iperf.path") ?: ""
+            }
+        )
+        val executable = if (binary.isFile) binary else throw IllegalStateException(
+            "موتور iperf3 برای این معماری در برنامه موجود نیست."
+        )
+        if (!executable.canExecute()) executable.setExecutable(true, false)
+        val command = listOf(
+            executable.absolutePath, "-c", host, "-p", port.toString(),
+            "-u", "-b", bitrate, "-l", "1200", "-t", durationSeconds.toString(), "-J"
+        )
+        val process = ProcessBuilder(command).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        if (!process.waitFor(5L, java.util.concurrent.TimeUnit.SECONDS)) {
+            process.destroyForcibly()
+            throw IllegalStateException("زمان پاسخ‌گویی سرور iperf3 به پایان رسید.")
         }
+        if (process.exitValue() != 0) {
+            throw IllegalStateException(output.takeLast(700).ifBlank { "ارتباط با سرور iperf3 برقرار نشد." })
+        }
+        val json = org.json.JSONObject(output)
+        val end = json.optJSONObject("end") ?: throw IllegalStateException("پاسخ JSON سرور ناقص است.")
+        val summary = end.optJSONObject("sum_received")
+            ?: end.optJSONObject("sum")
+            ?: end.optJSONObject("sum_sent")
+            ?: throw IllegalStateException("آمار UDP در خروجی iperf3 پیدا نشد.")
+        val sent = summary.optLong("packets", 0L)
+        val lost = summary.optLong("lost_packets", 0L)
+        val loss = summary.optDouble("lost_percent",
+            if (sent > 0) lost * 100.0 / sent else 0.0)
+        val jitter = summary.optDouble(" jitter_ms", summary.optDouble("jitter_ms", 0.0))
+        val mbps = summary.optDouble("bits_per_second", 0.0) / 1_000_000.0
+        if (sent <= 0) throw IllegalStateException("سرور پاسخی با آمار بسته‌های UDP برنگرداند.")
+        return IperfUdpResult(host, port, bitrate, sent, lost, loss, jitter, mbps)
     }
 
     // ───────── HTTP و سرعت ─────────
