@@ -98,6 +98,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var panelFilter: View
     private lateinit var etFilterDomain: EditText
     private lateinit var spFilterSite: Spinner
+    private lateinit var spFilterOperator: Spinner
+    private lateinit var spFilterCompareA: Spinner
+    private lateinit var spFilterCompareB: Spinner
+    private lateinit var dnsGraph: DnsGraphView
     private lateinit var tvFilterResult: TextView
     private lateinit var filterProgress: ProgressBar
     private lateinit var btnFilterCheck: Button
@@ -170,6 +174,10 @@ class MainActivity : AppCompatActivity() {
         panelFilter = findViewById(R.id.panelFilter)
         etFilterDomain = findViewById(R.id.etFilterDomain)
         spFilterSite = findViewById(R.id.spFilterSite)
+        spFilterOperator = findViewById(R.id.spFilterOperator)
+        spFilterCompareA = findViewById(R.id.spFilterCompareA)
+        spFilterCompareB = findViewById(R.id.spFilterCompareB)
+        dnsGraph = findViewById(R.id.dnsGraph)
         tvFilterResult = findViewById(R.id.tvFilterResult)
         filterProgress = findViewById(R.id.filterProgress)
         btnFilterCheck = findViewById(R.id.btnFilterCheck)
@@ -216,6 +224,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabDns).setOnClickListener { showPanel(5) }
         findViewById<Button>(R.id.btnCompareOperators).setOnClickListener { showOperatorComparison() }
         btnDnsLookup.setOnClickListener { runDnsLookup() }
+        findViewById<Button>(R.id.btnCompareFilter).setOnClickListener { compareFilterOperators() }
         findViewById<Button>(R.id.btnShareFilter).setOnClickListener {
             val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
             share("گزارش بررسی دسترسی\nاپراتور: ${spOperator.selectedItem}\nزمان: $stamp\n\n${tvFilterResult.text}")
@@ -310,7 +319,11 @@ class MainActivity : AppCompatActivity() {
                     append("زمان پاسخ HTTPS: ${https.ms}ms\n\n")
                     append("تفسیر: $colorHint\n\n")
                     append("توجه: موفق بودن Ping یا TCP به معنی نبود فیلترینگ نیست. این آزمون فقط از اتصال فعلی گوشی استفاده می‌کند. برای مقایسه، آن را روی اینترنت مخابرات، همراه اول و سایر اپراتورها جداگانه اجرا کنید. نتیجه قطعی فیلترینگ فقط با مقایسه چند مسیر و بررسی دقیق‌تر قابل اعلام است.")
+                    append("\n\nاپراتور ثبت‌شده: ").append(spFilterOperator.selectedItem.toString())
                 }
+                getSharedPreferences("netq", MODE_PRIVATE).edit()
+                    .putString("filter_result_${spFilterOperator.selectedItem}", tvFilterResult.text.toString())
+                    .apply()
             } catch (e: Exception) {
                 tvFilterResult.text = "خطا در اجرای آزمون: ${e.message ?: e.javaClass.simpleName}"
             } finally {
@@ -354,16 +367,63 @@ class MainActivity : AppCompatActivity() {
             return
         }
         btnDnsLookup.isEnabled = false
-        tvDnsLookupResult.text = "در حال دریافت رکوردهای DNS…"
+        tvDnsLookupResult.text = "در حال دریافت رکوردها از DNS-over-HTTPS…"
+        dnsGraph.values = emptyMap()
         lifecycleScope.launch {
             try {
-                tvDnsLookupResult.text = withContext(Dispatchers.IO) {
-                    DnsLookup.query(domain, spDnsType.selectedItem.toString())
+                val selected = spDnsType.selectedItem.toString()
+                val results = withContext(Dispatchers.IO) {
+                    if (selected == "تمام رکوردها") DnsLookup.queryAll(domain)
+                    else listOf(DnsLookup.query(domain, selected))
+                }
+                val counts = results.associate { it.type to it.answers.size }
+                dnsGraph.values = counts
+                tvDnsLookupResult.text = buildString {
+                    append("دامنه: $domain\n")
+                    append("حالت استعلام: $selected\n")
+                    append("زمان دریافت: ").append(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())).append("\n")
+                    results.forEach { result ->
+                        append("\n━━━━━━━━ ").append(result.type).append(" ━━━━━━━━\n")
+                        when {
+                            result.error != null -> append("خطا: ").append(result.error).append("\n")
+                            result.status == 0 && result.answers.isEmpty() -> append("رکوردی برای این نوع پیدا نشد.\n")
+                            result.answers.isNotEmpty() -> result.answers.forEach { answer ->
+                                append("• ").append(answer.value).append("\n")
+                                append("  TTL: ").append(answer.ttl).append(" ثانیه\n")
+                            }
+                            else -> append("DNS Status: ").append(result.status).append("\n")
+                        }
+                    }
+                    append("\nمنبع: Cloudflare DNS-over-HTTPS")
                 }
             } catch (e: Exception) {
-                tvDnsLookupResult.text = "خطا: ${e.message ?: e.javaClass.simpleName}"
+                tvDnsLookupResult.text = "خطا در استعلام DNS: ${e.message ?: e.javaClass.simpleName}"
             } finally { btnDnsLookup.isEnabled = true }
         }
+    }
+
+    private fun compareFilterOperators() {
+        val a = spFilterCompareA.selectedItem.toString()
+        val b = spFilterCompareB.selectedItem.toString()
+        if (a == b) {
+            Toast.makeText(this, "دو اپراتور متفاوت انتخاب کنید", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val ra = prefs.getString("filter_result_$a", null)
+        val rb = prefs.getString("filter_result_$b", null)
+        val report = buildString {
+            append("مقایسه بررسی دسترسی دو اپراتور\n\n")
+            append("اپراتور اول: $a\n")
+            append(ra ?: "برای این اپراتور هنوز تستی ذخیره نشده است.")
+            append("\n\n────────────────────\n\n")
+            append("اپراتور دوم: $b\n")
+            append(rb ?: "برای این اپراتور هنوز تستی ذخیره نشده است.")
+            append("\n\nتوجه: تست‌ها باید روی اتصال واقعی همان اپراتور اجرا شده باشند؛ انتخاب نام اپراتور به‌تنهایی مسیر اینترنت را تغییر نمی‌دهد.")
+        }
+        AlertDialog.Builder(this).setTitle("مقایسه اپراتورها").setMessage(report)
+            .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
+            .setNegativeButton("بستن", null).show()
     }
 
     private fun share(text: String) {
