@@ -493,74 +493,68 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun runDnsLookup() {
-        if (dnsJob?.isActive == true) {
-            dnsJob?.cancel()
-            return
-        }
+        if (dnsJob?.isActive == true) { dnsJob?.cancel(); return }
         val domain = etDnsLookup.text.toString().trim().trimEnd('.')
         if (domain.isBlank() || !domain.contains(".")) {
-            Toast.makeText(this, "دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show()
-            return
+            Toast.makeText(this, "دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show(); return
         }
         val server = spDnsServer.selectedItem?.toString() ?: return
-        val selected = spDnsType.selectedItem?.toString() ?: "A"
-        val allTypes = selected == "تمام رکوردها"
-        val types = if (allTypes) DnsLookup.supportedTypes().filter { it != "ANY" } else listOf(selected)
         btnDnsLookup.text = "توقف پایش زنده"
-        btnDnsLookup.isEnabled = true
         dnsChartsContainer.removeAllViews()
-        val histories = types.associateWith { ArrayList<Double>() }
-        val charts = types.associateWith { type ->
-            DnsRecordGraphView(this).apply { recordName = "$type • زمان پاسخ زنده" }
+
+        val serverHistory = ArrayList<Double>()
+        val aHistory = ArrayList<Double>()
+        val serverChart = DnsRecordGraphView(this).apply { recordName = "Ping سرور DNS ($server)" }
+        val aChart = DnsRecordGraphView(this).apply { recordName = "زمان پاسخ رکورد A برای $domain" }
+        val chartParams = LinearLayout.LayoutParams(-1, (155 * resources.displayMetrics.density).toInt()).apply {
+            bottomMargin = (10 * resources.displayMetrics.density).toInt()
         }
-        charts.values.forEach { chart ->
-            dnsChartsContainer.addView(chart, LinearLayout.LayoutParams(-1, (150 * resources.displayMetrics.density).toInt()).apply {
-                bottomMargin = (8 * resources.displayMetrics.density).toInt()
-            })
-        }
-        tvDnsLookupResult.text = "پایش پیوسته DNS برای $domain روی $server آغاز شد…"
+        dnsChartsContainer.addView(serverChart, chartParams)
+        dnsChartsContainer.addView(aChart, chartParams)
+
+        tvDnsLookupResult.text = "در حال دریافت رکوردهای دامنه $domain از DNS $server ..."
         dnsJob = lifecycleScope.launch {
-            var round = 0
             try {
+                val recordTypes = DnsLookup.supportedTypes().filter { it != "ANY" }
+                val initialRecords = coroutineScope {
+                    recordTypes.map { type -> async(Dispatchers.IO) { type to DnsLookup.query(server, domain, type) } }.map { it.await() }
+                }
+                val recordsText = buildString {
+                    append("رکوردهای دامنه: $domain\nDNS Server: $server:53\n\n")
+                    initialRecords.forEach { (type, result) ->
+                        append("━━ رکورد $type ━━\n")
+                        if (result.answers.isEmpty()) {
+                            append(if (result.error != null) "خطا: ${result.error}" else "رکوردی برنگشت (RCODE=${result.status})")
+                        } else result.answers.forEach { append("• ${it.value}    TTL: ${it.ttl}\n") }
+                        append("\n")
+                    }
+                    append("━━━━━━━━━━━━━━━━━━━━\nنمودارهای پایین به‌صورت زنده به‌روزرسانی می‌شوند.")
+                }
+                tvDnsLookupResult.text = recordsText
                 while (true) {
-                    round++
-                    val results = coroutineScope {
-                        types.map { type ->
-                            async(Dispatchers.IO) {
-                                val started = System.nanoTime()
-                                val result = DnsLookup.query(server, domain, type)
-                                val elapsed = (System.nanoTime() - started) / 1_000_000.0
-                                Triple(type, result, elapsed)
-                            }
-                        }.map { it.await() }
-                    }
-                    val report = buildString {
-                        append("دامنه: $domain\\nDNS Server: $server:53\\n")
-                        append("دور پایش: $round | درخواست‌ها: ${if (allTypes) "هم‌زمان برای همه انواع رکورد" else selected}\\n\\n")
-                        results.forEach { (type, result, elapsed) ->
-                            val point = if (result.error != null || result.status == null) -1.0 else elapsed
-                            val history = histories.getValue(type)
-                            history.add(point)
-                            if (history.size > 120) history.removeAt(0)
-                            charts.getValue(type).latencySamples = history.toList()
-                            append("━━ $type ━━\\n")
-                            append("زمان پاسخ: ${if (point >= 0) String.format(Locale.US, "%.1f ms", point) else "بدون پاسخ"}\\n")
-                            if (result.answers.isNotEmpty()) {
-                                result.answers.forEach { append("• ${it.value} (TTL ${it.ttl})\\n") }
-                            } else {
-                                append(if (result.error != null) "خطا: ${result.error}\\n" else "پاسخ بدون رکورد (RCODE=${result.status})\\n")
-                            }
-                            append("\\n")
+                    val (serverPing, aResult) = coroutineScope {
+                        val pingTask = async(Dispatchers.IO) { ping(server, 53, 1) }
+                        val aTask = async(Dispatchers.IO) {
+                            val began = System.nanoTime()
+                            val result = DnsLookup.query(server, domain, "A")
+                            val elapsed = (System.nanoTime() - began) / 1_000_000.0
+                            Pair(result, elapsed)
                         }
-                        append("پایش زنده فعال است؛ برای پایان، دکمه توقف را بزنید.")
+                        Pair(pingTask.await(), aTask.await())
                     }
-                    tvDnsLookupResult.text = report
+                    val pingValue = if (serverPing.received > 0) serverPing.avg else -1.0
+                    val aValue = if (aResult.first.error == null && aResult.first.status == 0) aResult.second else -1.0
+                    serverHistory.add(pingValue); aHistory.add(aValue)
+                    if (serverHistory.size > 120) serverHistory.removeAt(0)
+                    if (aHistory.size > 120) aHistory.removeAt(0)
+                    serverChart.latencySamples = serverHistory.toList()
+                    aChart.latencySamples = aHistory.toList()
                     delay(1000)
                 }
             } catch (_: CancellationException) {
-                tvDnsLookupResult.append("\\n\\nپایش متوقف شد.")
+                tvDnsLookupResult.append("\n\nپایش زنده متوقف شد.")
             } catch (e: Exception) {
-                tvDnsLookupResult.text = "خطا در تست DNS: ${e.message ?: e.javaClass.simpleName}"
+                tvDnsLookupResult.append("\n\nخطا در پایش: ${e.message ?: e.javaClass.simpleName}")
             } finally {
                 btnDnsLookup.text = "شروع پایش DNS"
             }
@@ -947,9 +941,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun compareLastTwoTests() {
-        val arr = try {
-            JSONArray(getSharedPreferences("netq", MODE_PRIVATE).getString("full_history", "[]") ?: "[]")
-        } catch (_: Exception) { JSONArray() }
+        val arr = try { JSONArray(getSharedPreferences("netq", MODE_PRIVATE).getString("full_history", "[]") ?: "[]") }
+            catch (_: Exception) { JSONArray() }
         if (arr.length() < 2) {
             AlertDialog.Builder(this).setTitle("مقایسه دو تست")
                 .setMessage("برای مقایسه، ابتدا دو تست کامل اجرا کنید.")
@@ -958,61 +951,61 @@ class MainActivity : AppCompatActivity() {
         }
         val newer = arr.getJSONObject(0)
         val older = arr.getJSONObject(1)
-        fun numeric(value: String): Double? = Regex("-?\\d+(?:\\.\\d+)?").find(value)?.value?.toDoubleOrNull()
-        fun delta(label: String, key: String, unit: String, lowerBetter: Boolean): String {
-            val a = numeric(older.optString(key))
-            val b = numeric(newer.optString(key))
-            if (a == null || b == null) return "$label: داده کافی نیست"
-            val diff = b - a
-            val direction = when {
-                kotlin.math.abs(diff) < 0.0001 -> "بدون تغییر"
-                (diff < 0 && lowerBetter) || (diff > 0 && !lowerBetter) -> "بهبود"
-                else -> "افت"
-            }
-            return "$label\\nقبلی: ${"%.1f".format(Locale.US, a)} $unit  |  جدید: ${"%.1f".format(Locale.US, b)} $unit\\nاختلاف: ${if (diff > 0) "+" else ""}${"%.1f".format(Locale.US, diff)} $unit ($direction)"
-        }
-        fun siteRows(report: String): Map<String, String> {
-            val map = LinkedHashMap<String, String>()
+        fun number(value: String): Double? = Regex("-?\\d+(?:\\.\\d+)?").find(value)?.value?.toDoubleOrNull()
+        fun siteRows(report: String): Map<String, Double> {
+            val map = LinkedHashMap<String, Double>()
             report.lines().forEach { line ->
                 val match = Regex("^(.+?) \\((داخلی|بین‌المللی)\\): (.+)$").find(line.trim())
-                if (match != null) map[match.groupValues[1].trim()] = match.groupValues[3].trim()
+                if (match != null) number(match.groupValues[3])?.let { map[match.groupValues[1].trim()] = it }
             }
             return map
         }
         val oldSites = siteRows(older.optString("report"))
         val newSites = siteRows(newer.optString("report"))
-        val siteComparison = buildString {
-            append("مقایسه تست سایت‌ها (زمان پاسخ HTTP)\\n")
-            val names = (oldSites.keys + newSites.keys).distinct()
-            if (names.isEmpty()) append("اطلاعات جزئی سایت‌ها در این دو گزارش ذخیره نشده است.\\n")
-            names.forEach { name ->
-                val a = oldSites[name] ?: "در تست قبلی وجود نداشت"
-                val b = newSites[name] ?: "در تست جدید وجود ندارد"
-                val am = numeric(a); val bm = numeric(b)
-                append("\\n$name\\nقبلی: $a\\nجدید: $b")
-                if (am != null && bm != null) {
-                    val diff = bm - am
-                    val label = if (kotlin.math.abs(diff) < 0.0001) "بدون تغییر" else if (diff < 0) "سریع‌تر" else "کندتر"
-                    append("\\nاختلاف زمان: ${if (diff > 0) "+" else ""}${"%.0f".format(Locale.US, diff)} ms ($label)")
-                }
-                append("\\n")
+        val siteNames = (oldSites.keys + newSites.keys).distinct()
+        val labels = mutableListOf("Ping", "Packet Loss", "دانلود")
+        val oldValues = mutableListOf(number(older.optString("ping")) ?: 0.0, number(older.optString("loss")) ?: 0.0, number(older.optString("speed")) ?: 0.0)
+        val newValues = mutableListOf(number(newer.optString("ping")) ?: 0.0, number(newer.optString("loss")) ?: 0.0, number(newer.optString("speed")) ?: 0.0)
+        siteNames.forEach { name ->
+            labels.add(name.take(11))
+            oldValues.add(oldSites[name] ?: 0.0)
+            newValues.add(newSites[name] ?: 0.0)
+        }
+        val scale = labels.indices.map { maxOf(oldValues[it], newValues[it], 1.0) }
+        val charts = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(8, 8, 8, 8) }
+        fun addTestChart(title: String, subtitle: String, values: List<Double>) {
+            val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(8, 8, 8, 8) }
+            val heading = TextView(this).apply {
+                text = "$title\\n$subtitle"
+                textSize = 12f
+                setTextColor(0xFF17324D.toInt())
+                setTypeface(typeface, Typeface.BOLD)
+                gravity = android.view.Gravity.CENTER
             }
+            column.addView(heading, LinearLayout.LayoutParams(-1, -2))
+            val chart = TestComparisonGraphView(this).apply {
+                metricLabels = labels
+                metricValues = values
+                metricScales = scale
+            }
+            column.addView(chart, LinearLayout.LayoutParams(-1, (260 * resources.displayMetrics.density).toInt()))
+            charts.addView(column, LinearLayout.LayoutParams(0, -2, 1f))
         }
-        val report = buildString {
-            append("مقایسه دو تست کامل اینترنت\\n")
-            append("تست قبلی: ${older.optString("operator")} | ${older.optString("time")} | ${older.optString("network")}\\n")
-            append("تست جدید: ${newer.optString("operator")} | ${newer.optString("time")} | ${newer.optString("network")}\\n\\n")
-            append(delta("میانگین Ping", "ping", "ms", true)).append("\\n\\n")
-            append(delta("Packet Loss", "loss", "%", true)).append("\\n\\n")
-            append(delta("سرعت دانلود", "speed", "Mbps", false)).append("\\n\\n")
-            append(siteComparison).append("\\n")
-            append("نتیجه قبلی: ${older.optString("verdict")}\\n")
-            append("نتیجه جدید: ${newer.optString("verdict")}\\n\\n")
-            append("توجه: برای مقایسه دقیق، تست‌ها را با تنظیمات و سایت‌های یکسان اجرا کنید.")
+        val timeOld = older.optString("time").ifBlank { "زمان ثبت نشده" }
+        val timeNew = newer.optString("time").ifBlank { "زمان ثبت نشده" }
+        addTestChart("تست قبلی", timeOld, oldValues)
+        addTestChart("تست جدید", timeNew, newValues)
+        val legend = TextView(this).apply {
+            text = "مقادیر روی ستون‌ها عدد واقعی هر شاخص هستند. مقیاس هر شاخص جداگانه تنظیم شده است. برای سایت‌ها زمان پاسخ بر حسب ms نمایش داده می‌شود."
+            textSize = 12f; setTextColor(0xFF526579.toInt()); setPadding(12, 8, 12, 8)
         }
-        AlertDialog.Builder(this).setTitle("مقایسه عددی دو تست آخر")
-            .setMessage(report)
-            .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
+        val wrapper = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(charts); addView(legend) }
+        val scroll = ScrollView(this).apply { addView(wrapper) }
+        AlertDialog.Builder(this).setTitle("مقایسه نموداری دو تست کامل")
+            .setView(scroll)
+            .setPositiveButton("اشتراک‌گذاری گزارش متنی") { _, _ ->
+                share("تست قبلی: $timeOld\\nPing: ${older.optString("ping")} | Loss: ${older.optString("loss")} | Download: ${older.optString("speed")}\\n\\nتست جدید: $timeNew\\nPing: ${newer.optString("ping")} | Loss: ${newer.optString("loss")} | Download: ${newer.optString("speed")}")
+            }
             .setNegativeButton("بستن", null).show()
     }
 
