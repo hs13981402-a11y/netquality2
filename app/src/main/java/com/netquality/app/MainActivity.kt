@@ -2,6 +2,8 @@ package com.netquality.app
 
 import android.Manifest
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
@@ -290,6 +292,14 @@ class MainActivity : AppCompatActivity() {
         panelChart.visibility = if (i == 3) View.VISIBLE else View.GONE
         panelFilter.visibility = if (i == 4) View.VISIBLE else View.GONE
         panelDns.visibility = if (i == 5) View.VISIBLE else View.GONE
+
+        val tabIds = intArrayOf(R.id.tabTest, R.id.tabPlot, R.id.tabSettings, R.id.tabChart, R.id.tabFilter, R.id.tabDns)
+        tabIds.forEachIndexed { index, id ->
+            val tab = findViewById<Button>(id)
+            val selected = index == i
+            tab.backgroundTintList = ColorStateList.valueOf(Color.parseColor(if (selected) "#0E9F9A" else "#263858"))
+            tab.setTextColor(Color.parseColor(if (selected) "#FFFFFF" else "#DCE8F4"))
+        }
     }
 
     private fun checkFilterAccess() {
