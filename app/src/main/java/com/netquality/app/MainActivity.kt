@@ -120,11 +120,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webPacketLoss: WebView
     private lateinit var tvUdpLossResult: TextView
     private lateinit var tvUploadLossResult: TextView
+    private lateinit var etIperfHost: EditText
+    private lateinit var etIperfPort: EditText
     private lateinit var etDnsLookup: EditText
     private lateinit var spDnsType: Spinner
     private lateinit var tvDnsLookupResult: TextView
     private lateinit var btnDnsLookup: Button
-    private lateinit var spOperator: Spinner
 
     private lateinit var tvStatus: TextView
     private lateinit var tvLog: TextView
@@ -205,11 +206,15 @@ class MainActivity : AppCompatActivity() {
         webPacketLoss = findViewById(R.id.webPacketLoss)
         tvUdpLossResult = findViewById(R.id.tvUdpLossResult)
         tvUploadLossResult = findViewById(R.id.tvUploadLossResult)
+        etIperfHost = findViewById(R.id.etIperfHost)
+        etIperfPort = findViewById(R.id.etIperfPort)
+        val iperfPrefs = getSharedPreferences("netq", MODE_PRIVATE)
+        etIperfHost.setText(iperfPrefs.getString("iperf_host", "speedtest.uninet.az"))
+        etIperfPort.setText(iperfPrefs.getInt("iperf_port", 5201).toString())
         etDnsLookup = findViewById(R.id.etDnsLookup)
         spDnsType = findViewById(R.id.spDnsType)
         tvDnsLookupResult = findViewById(R.id.tvDnsLookupResult)
         btnDnsLookup = findViewById(R.id.btnDnsLookup)
-        spOperator = findViewById(R.id.spOperator)
 
         tvStatus = findViewById(R.id.tvStatus)
         tvLog = findViewById(R.id.tvLog)
@@ -261,7 +266,6 @@ class MainActivity : AppCompatActivity() {
         webPacketLoss.settings.loadsImagesAutomatically = true
         webPacketLoss.webViewClient = WebViewClient()
         webPacketLoss.loadUrl("https://fa.packetlosstest.com/")
-        findViewById<Button>(R.id.btnCompareOperators).setOnClickListener { showOperatorComparison() }
         btnDnsLookup.setOnClickListener { runDnsLookup() }
         findViewById<Button>(R.id.btnAddDnsServer).setOnClickListener { addDnsServer() }
         refreshDnsServers()
@@ -272,7 +276,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnCompareFilter).setOnClickListener { compareFilterOperators() }
         findViewById<Button>(R.id.btnShareFilter).setOnClickListener {
             val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
-            share("گزارش بررسی دسترسی\nاپراتور: ${spOperator.selectedItem}\nزمان: $stamp\n\n${tvFilterResult.text}")
+            share("گزارش بررسی دسترسی\nزمان: $stamp\n\n${tvFilterResult.text}")
         }
         btnFilterCheck.setOnClickListener { checkFilterAccess() }
         findViewById<Button>(R.id.tabChart).setOnClickListener { showPanel(3) }
@@ -329,8 +333,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val iperfHost = "speedtest.uninet.az"
-    private val iperfPort = 5201
+    private fun iperfServer(): Pair<String, Int> {
+        val host = etIperfHost.text.toString().trim()
+        val port = etIperfPort.text.toString().trim().toIntOrNull()
+        require(host.isNotBlank()) { "آدرس سرور iperf3 را وارد کنید." }
+        require(port != null && port in 1..65535) { "پورت باید بین 1 تا 65535 باشد." }
+        getSharedPreferences("netq", MODE_PRIVATE).edit().putString("iperf_host", host).putInt("iperf_port", port).apply()
+        return host to port
+    }
 
     private fun runStandaloneUdpLoss() {
         val button = findViewById<Button>(R.id.btnUdpLoss)
@@ -338,8 +348,9 @@ class MainActivity : AppCompatActivity() {
         tvUdpLossResult.text = "آزمون واقعی iperf3 UDP با نرخ 1 Mbps در حال اجراست..."
         lifecycleScope.launch {
             try {
+                val (host, port) = iperfServer()
                 val result = withContext(Dispatchers.IO) {
-                    Net.iperfUdpTest(this@MainActivity, iperfHost, iperfPort, "1M", 10)
+                    Net.iperfUdpTest(this@MainActivity, host, port, "1M", 10)
                 }
                 tvUdpLossResult.text = "سرور: ${result.host}:${result.port}\nنرخ هدف: ${result.bitrate}\nبسته‌های گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ واقعی: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps"
             } catch (e: Exception) {
@@ -354,8 +365,9 @@ class MainActivity : AppCompatActivity() {
         tvUploadLossResult.text = "آزمون UDP Upload با نرخ هدف 10 Mbps در حال اجراست..."
         lifecycleScope.launch {
             try {
+                val (host, port) = iperfServer()
                 val result = withContext(Dispatchers.IO) {
-                    Net.iperfUdpTest(this@MainActivity, iperfHost, iperfPort, "10M", 15)
+                    Net.iperfUdpTest(this@MainActivity, host, port, "10M", 15)
                 }
                 tvUploadLossResult.text = "آزمون UDP Upload به سرور ${result.host}:${result.port}\nنرخ هدف ارسال: ${result.bitrate}\nبسته‌های ارسالی/گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss در مسیر Upload: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ دریافت‌شده در سرور: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps\n\nاین آزمون افت بسته‌های UDP ارسالی از گوشی به سرور را می‌سنجد؛ آزمون اشباع هم‌زمان TCP نیست."
             } catch (e: Exception) {
@@ -425,56 +437,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    private fun showOperatorComparison() {
-        val arr = try { JSONArray(getSharedPreferences("netq", MODE_PRIVATE).getString("full_history", "[]") ?: "[]") }
-            catch (_: Exception) { JSONArray() }
-        val latest = LinkedHashMap<String, JSONObject>()
-        for (i in 0 until arr.length()) {
-            val item = arr.optJSONObject(i) ?: continue
-            val op = item.optString("operator").ifBlank { "نامشخص" }
-            if (!latest.containsKey(op)) latest[op] = item
-        }
-        if (latest.size < 2) {
-            AlertDialog.Builder(this).setTitle("مقایسه اپراتورها")
-                .setMessage("برای مقایسه واقعی، تست کامل را جداگانه روی حداقل دو اپراتور اجرا کنید. نتایج هر اپراتور بر اساس آخرین تست ذخیره‌شده مقایسه می‌شود.")
-                .setPositiveButton("متوجه شدم", null).show()
-            return
-        }
-        fun value(o: JSONObject, key: String): Double? =
-            Regex("-?[0-9]+([.][0-9]+)?").find(o.optString(key))?.value?.toDoubleOrNull()
-        val metrics = listOf(
-            Triple("Ping", "ping", true), Triple("Packet Loss", "loss", true),
-            Triple("سرعت دانلود", "speed", false)
-        )
-        val report = buildString {
-            append("مقایسه آخرین تست ذخیره‌شده هر اپراتور\n")
-            append("تعداد اپراتورهای مقایسه‌شده: ${latest.size}\n")
-            latest.forEach { (op, item) ->
-                append("\n━━━━━━━━ $op ━━━━━━━━\n")
-                append("زمان: ${item.optString("time")} | شبکه: ${item.optString("network")}\n")
-                append("Ping: ${item.optString("ping")} | Loss: ${item.optString("loss")} | Speed: ${item.optString("speed")}\n")
-                append("ارزیابی: ${item.optString("verdict")}\n")
-                val lines = item.optString("report").lines().filter { it.contains("❌") || it.contains("⚠️") }
-                append("موارد قابل توجه: ${if (lines.isEmpty()) "مورد هشدار ثبت نشده" else lines.take(8).joinToString("؛ ")}\n")
-            }
-            append("\n━━━━━━━━ جمع‌بندی شاخص‌ها ━━━━━━━━\n")
-            metrics.forEach { (label,key,lowerBetter) ->
-                val valid = latest.mapNotNull { (op,item) -> value(item,key)?.let { op to it } }
-                if (valid.isEmpty()) append("$label: داده عددی کافی وجود ندارد\n")
-                else {
-                    val best = if (lowerBetter) valid.minBy { it.second } else valid.maxBy { it.second }
-                    append("بهترین $label: ${best.first} (${String.format(Locale.US,"%.2f",best.second)})\n")
-                    valid.forEach { (op,v) -> append("  • $op: ${String.format(Locale.US,"%.2f",v)}\n") }
-                }
-            }
-            append("\nپیشنهاد: اپراتوری برتر است که هم‌زمان تأخیر و Packet Loss کمتر، سرعت بالاتر و هشدارهای عملیاتی کمتری داشته باشد. اگر شاخص‌ها بین اپراتورها تقسیم شده باشند، نتیجه نهایی «ترکیبی» است و باید بر اساس نوع استفاده انتخاب شود.")
-            append("\n\nنکته: مقایسه فقط بر اساس داده‌های واقعاً ثبت‌شده انجام شده؛ تست‌ها بهتر است با مقصدها و تنظیمات یکسان و در بازه زمانی نزدیک اجرا شوند.")
-        }
-        AlertDialog.Builder(this).setTitle("تحلیل و مقایسه اپراتورها").setMessage(report)
-            .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
-            .setNegativeButton("بستن", null).show()
-    }
 
     private fun refreshDnsServers() {
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
@@ -927,8 +889,8 @@ class MainActivity : AppCompatActivity() {
                 tvStatus.text = verdict + if (issues.isEmpty()) "" else "\n\n" + issues.joinToString("\n\n")
                 val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
                 val net = (info?.type ?: "-") + (info?.ssid?.takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: "")
-                saveHistory("$time | ${spOperator.selectedItem} | $net | ping $pingText | loss $lossText | speed $speedText | ${verdict.take(2)}")
-                saveFullSnapshot(time, spOperator.selectedItem.toString(), net, pingText, lossText, speedText, verdict, log.toString())
+                saveHistory("$time | $net | ping $pingText | loss $lossText | speed $speedText | ${verdict.take(2)}")
+                saveFullSnapshot(time, "—", net, pingText, lossText, speedText, verdict, log.toString())
                 progress.visibility = View.GONE
                 btnStart.isEnabled = true
                 running = false
