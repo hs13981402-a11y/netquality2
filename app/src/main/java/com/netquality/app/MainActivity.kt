@@ -17,6 +17,13 @@ import android.widget.ProgressBar
 import android.widget.RadioButton
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.graphics.Typeface
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -323,11 +330,22 @@ class MainActivity : AppCompatActivity() {
     // ════════════════════════════════════════════
     private fun add(section: String) {
         val parts = section.split("\n", limit = 2)
-        log.append("━━━━━━━━━━━━━━━━━━━━━━━━\n")
-        log.append("◆  ").append(parts.first()).append("\n")
-        if (parts.size > 1) log.append(parts[1]).append("\n")
-        log.append("\n")
-        tvLog.text = log.toString()
+        val title = parts.first().trim()
+        val body = parts.getOrNull(1)?.trim().orEmpty()
+        log.append("\n━━━━━━━━━━━━━━━━━━━━━━━━\n")
+        log.append("◆  ").append(title).append("\n")
+        if (body.isNotBlank()) log.append(body).append("\n")
+        val plain = log.toString().trimStart()
+        val styled = SpannableStringBuilder(plain)
+        var start = 0
+        plain.split("\n").forEach { line ->
+            if (line.startsWith("◆  ")) {
+                styled.setSpan(StyleSpan(Typeface.BOLD), start, start + line.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                styled.setSpan(ForegroundColorSpan(0xFF087E8B.toInt()), start, start + line.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            start += line.length + 1
+        }
+        tvLog.text = styled
     }
 
     private fun runTest() {
@@ -616,13 +634,54 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHistory() {
         val sp = getSharedPreferences("netq", MODE_PRIVATE)
-        val text = sp.getString("history", "")?.takeIf { it.isNotBlank() } ?: "هنوز تستی انجام نشده."
+        val entries = (sp.getString("history", "") ?: "").lines().filter { it.isNotBlank() }
+        if (entries.isEmpty()) {
+            AlertDialog.Builder(this).setTitle("گزارش‌های ذخیره‌شده")
+                .setMessage("هنوز گزارشی ذخیره نشده است. پس از اجرای تست کامل، نتیجه‌ها اینجا ثبت می‌شوند.")
+                .setPositiveButton("متوجه شدم", null).show()
+            return
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(18, 8, 18, 8)
+        }
+        entries.forEachIndexed { index, entry ->
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(16, 14, 16, 14)
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.report_card)
+            }
+            val title = TextView(this).apply {
+                text = "گزارش ${entries.size - index}"
+                textSize = 14f
+                setTextColor(0xFF087E8B.toInt())
+                setTypeface(typeface, Typeface.BOLD)
+            }
+            val detail = TextView(this).apply {
+                text = entry.replace(" | ", "\n")
+                textSize = 13f
+                setTextColor(0xFF263746.toInt())
+                setLineSpacing(5f, 1.05f)
+                setPadding(0, 8, 0, 0)
+            }
+            card.addView(title)
+            card.addView(detail)
+            container.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 12 })
+        }
+        val scroll = ScrollView(this).apply { addView(container) }
         AlertDialog.Builder(this)
-            .setTitle("تاریخچه‌ی تست‌ها")
-            .setMessage(text)
+            .setTitle("گزارش‌های ذخیره‌شده (${entries.size})")
+            .setView(scroll)
             .setPositiveButton("بستن", null)
-            .setNeutralButton("پاک کردن") { _, _ -> sp.edit().remove("history").apply() }
-            .show()
+            .setNeutralButton("اشتراک‌گذاری همه") { _, _ -> share("گزارش‌های NetQuality\n\n" + entries.joinToString("\n\n")) }
+            .setNegativeButton("پاک کردن همه") { _, _ ->
+                AlertDialog.Builder(this).setMessage("همه گزارش‌های ذخیره‌شده پاک شوند؟")
+                    .setNegativeButton("انصراف", null)
+                    .setPositiveButton("پاک شود") { _, _ ->
+                        sp.edit().remove("history").apply()
+                        Toast.makeText(this, "گزارش‌ها پاک شدند", Toast.LENGTH_SHORT).show()
+                    }.show()
+            }.show()
     }
 
     // ════════════════════════════════════════════
@@ -741,6 +800,13 @@ class MainActivity : AppCompatActivity() {
         tvTable.text = table
         tvPlotInfo.text = "$header | نمونه: $sent | زمان‌ها میلی‌ثانیه (برای هاپ‌های میانی تقریبی)"
         val selected = stats.last()
+        val lastPing = selected.hist.lastOrNull()?.takeIf { it >= 0 }?.let { "آخرین: ${f0(it)} ms  |  میانگین: ${f0(selected.avg)} ms" } ?: "آخرین: بدون پاسخ  |  میانگین: ${f0(selected.avg)} ms"
+        val lastJitter = selected.jitterHist.lastOrNull()?.takeIf { it >= 0 }?.let { "آخرین: ${f0(it)} ms" } ?: "آخرین: —"
+        val lastLoss = "مقدار فعلی: ${f1(selected.loss)}%  |  بسته‌های ارسالی: ${selected.sent}"
+        graph.summaryText = lastPing
+        graphLarge.summaryText = lastPing
+        graphJitter.summaryText = lastJitter
+        graphLoss.summaryText = lastLoss
         graph.data = selected.hist.toList()
         graphLarge.data = selected.hist.toList()
         graphJitter.data = selected.jitterHist.toList()

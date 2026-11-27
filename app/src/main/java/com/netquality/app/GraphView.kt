@@ -17,6 +17,8 @@ class GraphView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         set(value) { field = value; invalidate() }
     var chartUnit: String = "ms"
         set(value) { field = value; invalidate() }
+    var summaryText: String = "در انتظار داده"
+        set(value) { field = value; invalidate() }
 
     private val maxPoints = 150
     private val density = resources.displayMetrics.density
@@ -43,10 +45,16 @@ class GraphView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         val d = data.takeLast(maxPoints)
         val w = width.toFloat(); val h = height.toFloat()
         val left = 42f * density; val right = 12f * density
-        val top = 32f * density; val bottom = 22f * density
+        val top = 54f * density; val bottom = 24f * density
         val plotW = (w - left - right).coerceAtLeast(1f)
         val plotH = (h - top - bottom).coerceAtLeast(1f)
         canvas.drawText("$chartTitle ($chartUnit)", left, 19f * density, titlePaint)
+        val summaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFF087E8B.toInt()
+            textSize = 11f * resources.displayMetrics.scaledDensity
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        }
+        canvas.drawText(summaryText, left, 40f * density, summaryPaint)
 
         val valid = d.filter { it >= 0.0 }
         val maxValue = max(1.0, (valid.maxOrNull() ?: 1.0) * 1.15)
