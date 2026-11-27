@@ -780,7 +780,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="سه روش مستقل برای بررسی افت بسته؛ نتایج هر آزمون جداگانه ثبت می‌شوند."
+                    android:text="آزمون‌های واقعی UDP با موتور iperf3؛ آمار افت بسته و Jitter از گزارش سرور دریافت می‌شود."
                     android:textColor="#607080"
                     android:textSize="13sp" />
 
@@ -802,7 +802,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="5dp"
-                        android:text="ارسال ۳۰ پروب DNS روی UDP/53 به سرور 1.1.1.1 و محاسبه درصد پاسخ‌های ازدست‌رفته."
+                        android:text="ارسال جریان UDP با نرخ هدف 1 Mbps به سرور iperf3 و محاسبه Packet Loss واقعی از گزارش سمت سرور."
                         android:textColor="#607080"
                         android:textSize="12sp" />
                     <Button
@@ -843,7 +843,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="5dp"
-                        android:text="هم‌زمان با آپلود آزمایشی، پاسخ‌گویی پروب‌های UDP بررسی می‌شود. این عدد Packet Loss خود جریان آپلود نیست."
+                        android:text="ارسال جریان UDP از گوشی به سرور با نرخ هدف 10 Mbps؛ افت بسته‌های مسیر Upload مستقیماً از گزارش iperf3 خوانده می‌شود."
                         android:textColor="#607080"
                         android:textSize="12sp" />
                     <Button
@@ -866,45 +866,8 @@
                         android:textSize="14sp" />
                 </LinearLayout>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:background="@drawable/panel_card">
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="۳. آزمون تکمیلی WebRTC"
-                        android:textColor="#17324D"
-                        android:textSize="17sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:text="آزمون PacketLossTest برای بررسی جداگانه افت بسته در Upload و Download، به‌همراه Latency و Jitter."
-                        android:textColor="#607080"
-                        android:textSize="12sp" />
-                    <Button
-                        android:id="@+id/btnReloadPacketLossWeb"
-                        android:layout_width="match_parent"
-                        android:layout_height="46dp"
-                        android:layout_marginTop="10dp"
-                        android:text="بارگذاری مجدد آزمون"
-                        android:textColor="#FFFFFF"
-                        android:backgroundTint="#17324D" />
-                    <WebView
-                        android:id="@+id/webPacketLoss"
-                        android:layout_width="match_parent"
-                        android:layout_height="620dp"
-                        android:layout_marginTop="10dp" />
-                </LinearLayout>
             </LinearLayout>
-        </ScrollView>
-
-        <!-- ───────── پنل تنظیمات ───────── -->
+        </ScrollView>        <!-- ───────── پنل تنظیمات ───────── -->
         <ScrollView
             android:id="@+id/panelSettings"
             android:layout_width="match_parent"
