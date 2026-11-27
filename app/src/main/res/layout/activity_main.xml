@@ -692,7 +692,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="پایش پاسخ رکوردها · ۱۰ نمونه متوالی"
+                    android:text="نمودار زنده زمان پاسخ DNS · پایش پیوسته"
                     android:textStyle="bold"
                     android:textColor="#17324D" />
                 <LinearLayout
@@ -705,7 +705,7 @@
                     android:id="@+id/btnDnsLookup"
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
-                    android:text="استعلام رکورد DNS"
+                    android:text="شروع پایش DNS"
                     android:backgroundTint="#0E9F9A"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold"
