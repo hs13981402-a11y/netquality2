@@ -26,13 +26,13 @@
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
                 android:textSize="19sp"
-                android:letterSpacing="0.08" //>
+                android:letterSpacing="0.08" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Network monitoring &amp; diagnostics"
                 android:textColor="#AFC4D8"
-                android:textSize="11sp" //>
+                android:textSize="11sp" />
         </LinearLayout>
         <TextView
             android:layout_width="38dp"
@@ -42,7 +42,7 @@
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:textSize="18sp"
-            android:background="#0E9F9A" //>
+            android:background="#0E9F9A" />
     </LinearLayout>
 
     <HorizontalScrollView
@@ -72,7 +72,7 @@
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#0E9F9A"
                 android:insetTop="0dp"
-                android:insetBottom="0dp" //>
+                android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabPlot"
@@ -85,7 +85,7 @@
                 android:textColor="#DCE8F4"
                 android:backgroundTint="#263858"
                 android:insetTop="0dp"
-                android:insetBottom="0dp" //>
+                android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabChart"
@@ -98,7 +98,7 @@
                 android:textColor="#DCE8F4"
                 android:backgroundTint="#263858"
                 android:insetTop="0dp"
-                android:insetBottom="0dp" //>
+                android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabFilter"
@@ -111,7 +111,7 @@
                 android:textColor="#DCE8F4"
                 android:backgroundTint="#263858"
                 android:insetTop="0dp"
-                android:insetBottom="0dp" //>
+                android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabDns"
@@ -124,7 +124,7 @@
                 android:textColor="#DCE8F4"
                 android:backgroundTint="#263858"
                 android:insetTop="0dp"
-                android:insetBottom="0dp" //>
+                android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabSettings"
@@ -136,7 +136,7 @@
                 android:textColor="#DCE8F4"
                 android:backgroundTint="#263858"
                 android:insetTop="0dp"
-                android:insetBottom="0dp" //>
+                android:insetBottom="0dp" />
         </LinearLayout>
     </HorizontalScrollView>
 
@@ -178,12 +178,12 @@
                     android:text="ثبت نتایج و مقایسه اپراتورها"
                     android:textStyle="bold"
                     android:textColor="#17324D"
-                    android:layout_marginTop="4dp" //>
+                    android:layout_marginTop="4dp" />
                 <Spinner
                     android:id="@+id/spOperator"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:entries="@array/operator_names" //>
+                    android:entries="@array/operator_names" />
                 <Button
                     android:id="@+id/btnCompareOperators"
                     android:layout_width="match_parent"
@@ -196,7 +196,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:checked="false"
-                    android:text="اجرای خودکار پس از اتصال مجدد (اختیاری)" //>
+                    android:text="اجرای خودکار پس از اتصال مجدد (اختیاری)" />
 
                 <Button
                     android:id="@+id/btnStart"
@@ -214,7 +214,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:indeterminate="true"
-                    android:visibility="gone" //>
+                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/tvLog"
@@ -238,7 +238,7 @@
                     android:layout_marginTop="10dp"
                     android:text="مقایسه دو تست آخر (قبل و بعد از تغییر اینترنت)"
                     android:backgroundTint="#243B63"
-                    android:textColor="#FFFFFF" //>
+                    android:textColor="#FFFFFF" />
 
                 <Button
                     android:id="@+id/btnShareTest"
@@ -301,13 +301,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true"
-                        android:text="Trace (ICMP)" //>
+                        android:text="Trace (ICMP)" />
 
                     <RadioButton
                         android:id="@+id/rbTcp"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="TCP Ping" //>
+                        android:text="TCP Ping" />
                 </RadioGroup>
 
                 <EditText
@@ -330,7 +330,7 @@
                     android:layout_marginTop="10dp"
                     android:text="فاصله به‌روزرسانی نمودار (ثانیه)"
                     android:textStyle="bold"
-                    android:textColor="#263238" //>
+                    android:textColor="#263238" />
 
                 <EditText
                     android:id="@+id/etRefreshSeconds"
@@ -362,7 +362,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:textColor="#222222"
-                    android:textSize="13sp" //>
+                    android:textSize="13sp" />
 
                 <com.netquality.app.GraphView
                     android:id="@+id/graph"
@@ -370,7 +370,7 @@
                     android:layout_height="240dp"
                     android:layout_marginTop="12dp"
                     android:background="@drawable/report_card"
-                    android:padding="8dp" //>
+                    android:padding="8dp" />
 
                 <TextView
                     android:id="@+id/tvTable"
@@ -395,7 +395,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="ارسال گزارش" //>
+                    android:text="ارسال گزارش" />
             </LinearLayout>
         </ScrollView>
 
@@ -421,7 +421,7 @@
                     android:text="نمودار زنده کیفیت ارتباط"
                     android:textSize="19sp"
                     android:textStyle="bold"
-                    android:textColor="#17324D" //>
+                    android:textColor="#17324D" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -429,7 +429,7 @@
                     android:layout_marginTop="6dp"
                     android:text="تأخیر پاسخ در طول زمان؛ علامت قرمز نشان‌دهنده از دست رفتن بسته است."
                     android:textColor="#607080"
-                    android:textSize="13sp" //>
+                    android:textSize="13sp" />
 
                 <com.netquality.app.GraphView
                     android:id="@+id/graphLarge"
@@ -437,7 +437,7 @@
                     android:layout_height="280dp"
                     android:layout_marginTop="16dp"
                     android:background="@drawable/report_card"
-                    android:padding="8dp" //>
+                    android:padding="8dp" />
 
                 <com.netquality.app.GraphView
                     android:id="@+id/graphJitter"
@@ -445,7 +445,7 @@
                     android:layout_height="210dp"
                     android:layout_marginTop="16dp"
                     android:background="@drawable/report_card"
-                    android:padding="8dp" //>
+                    android:padding="8dp" />
 
                 <com.netquality.app.GraphView
                     android:id="@+id/graphLoss"
@@ -453,7 +453,7 @@
                     android:layout_height="210dp"
                     android:layout_marginTop="16dp"
                     android:background="@drawable/report_card"
-                    android:padding="8dp" //>
+                    android:padding="8dp" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -461,7 +461,7 @@
                     android:layout_marginTop="12dp"
                     android:text="هر سه نمودار هم‌زمان به‌روزرسانی می‌شوند. فاصله Refresh را از تب «تریس / پلاتر» تنظیم کنید."
                     android:textColor="#455A64"
-                    android:textSize="13sp" //>
+                    android:textSize="13sp" />
             </LinearLayout>
         </ScrollView>
 
@@ -486,14 +486,14 @@
                     android:text="تشخیص محدودیت دسترسی"
                     android:textColor="#102A43"
                     android:textSize="21sp"
-                    android:textStyle="bold" //>
+                    android:textStyle="bold" />
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:text="آزمون DNS، اتصال TCP/443 و پاسخ HTTPS؛ نتیجه احتمالی است و به‌تنهایی اثبات فیلترینگ نیست."
                     android:textColor="#526579"
-                    android:textSize="13sp" //>
+                    android:textSize="13sp" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -501,12 +501,12 @@
                     android:layout_marginTop="18dp"
                     android:text="دامنه‌های آماده"
                     android:textColor="#17324D"
-                    android:textStyle="bold" //>
+                    android:textStyle="bold" />
                 <Spinner
                     android:id="@+id/spFilterSite"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:entries="@array/filter_sites" //>
+                    android:entries="@array/filter_sites" />
                 <EditText
                     android:id="@+id/etFilterDomain"
                     android:layout_width="match_parent"
@@ -528,12 +528,12 @@
                     android:layout_marginTop="14dp"
                     android:text="اپراتوری که همین حالا به اینترنت آن متصل هستید"
                     android:textColor="#17324D"
-                    android:textStyle="bold" //>
+                    android:textStyle="bold" />
                 <Spinner
                     android:id="@+id/spFilterOperator"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
-                    android:entries="@array/operator_names" //>
+                    android:entries="@array/operator_names" />
                 <Button
                     android:id="@+id/btnFilterCheck"
                     android:layout_width="match_parent"
@@ -551,7 +551,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:indeterminate="true"
-                    android:visibility="gone" //>
+                    android:visibility="gone" />
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -559,30 +559,30 @@
                     android:text="مقایسه دو اپراتور"
                     android:textColor="#17324D"
                     android:textSize="17sp"
-                    android:textStyle="bold" //>
+                    android:textStyle="bold" />
                 <Spinner
                     android:id="@+id/spFilterCompareA"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:entries="@array/operator_names" //>
+                    android:entries="@array/operator_names" />
                 <Spinner
                     android:id="@+id/spFilterCompareB"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:entries="@array/operator_names" //>
+                    android:entries="@array/operator_names" />
                 <Button
                     android:id="@+id/btnCompareFilter"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="نمایش مقایسه اپراتورها"
                     android:backgroundTint="#17324D"
-                    android:textColor="#FFFFFF" //>
+                    android:textColor="#FFFFFF" />
                 <Button
                     android:id="@+id/btnShareFilter"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="اشتراک‌گذاری گزارش بررسی" //>
+                    android:text="اشتراک‌گذاری گزارش بررسی" />
                 <TextView
                     android:id="@+id/tvFilterResult"
                     android:layout_width="match_parent"
@@ -594,7 +594,7 @@
                     android:textColor="#243B53"
                     android:textSize="15sp"
                     android:lineSpacingExtra="7dp"
-                    android:textIsSelectable="true" //>
+                    android:textIsSelectable="true" />
             </LinearLayout>
         </ScrollView>
 
@@ -618,14 +618,14 @@
                     android:text="DNS Explorer"
                     android:textColor="#102A43"
                     android:textSize="21sp"
-                    android:textStyle="bold" //>
+                    android:textStyle="bold" />
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="استعلام تکی یا گروهی رکوردها همراه با نمودار تعداد پاسخ‌ها؛ ارتباط امن DNS-over-HTTPS."
                     android:textColor="#526579"
-                    android:textSize="13sp" //>
+                    android:textSize="13sp" />
                 <EditText
                     android:id="@+id/etDnsLookup"
                     android:layout_width="match_parent"
@@ -647,7 +647,7 @@
                     android:layout_marginTop="12dp"
                     android:text="DNS Server انتخابی"
                     android:textStyle="bold"
-                    android:textColor="#17324D" //>
+                    android:textColor="#17324D" />
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -673,30 +673,30 @@
                         android:layout_width="wrap_content"
                         android:layout_height="48dp"
                         android:text="افزودن"
-                        android:minWidth="72dp" //>
+                        android:minWidth="72dp" />
                 </LinearLayout>
                 <Spinner
                     android:id="@+id/spDnsServer"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp" //>
+                    android:layout_height="48dp" />
                 <Spinner
                     android:id="@+id/spDnsType"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:entries="@array/dns_record_types" //>
+                    android:entries="@array/dns_record_types" />
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="پایش پاسخ رکوردها (۱۰ نمونه متوالی)"
                     android:textStyle="bold"
-                    android:textColor="#17324D" //>
+                    android:textColor="#17324D" />
                 <LinearLayout
                     android:id="@+id/dnsChartsContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:layout_marginTop="8dp" //>
+                    android:layout_marginTop="8dp" />
                 <Button
                     android:id="@+id/btnDnsLookup"
                     android:layout_width="match_parent"
@@ -742,7 +742,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="هر خط یک مورد. خطی که با # شروع شود نادیده گرفته می‌شود."
-                    android:textColor="#555555" //>
+                    android:textColor="#555555" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -750,7 +750,7 @@
                 android:layout_marginTop="12dp"
                 android:text="اهداف پینگ (هر خط یک مورد؛ host یا host:port برای حالت TCP)"
                 android:textColor="#222222"
-                android:textStyle="bold" //>
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/etPing"
@@ -761,7 +761,7 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" //>
+                android:textSize="13sp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -769,7 +769,7 @@
                 android:layout_marginTop="12dp"
                 android:text="سرورهای DNS برای تست (هر خط یک IP)"
                 android:textColor="#222222"
-                android:textStyle="bold" //>
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/etDnsServers"
@@ -780,7 +780,7 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" //>
+                android:textSize="13sp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -788,7 +788,7 @@
                 android:layout_marginTop="12dp"
                 android:text="دامنه‌های تست DNS"
                 android:textColor="#222222"
-                android:textStyle="bold" //>
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/etDnsDomains"
@@ -799,7 +799,7 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" //>
+                android:textSize="13sp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -807,7 +807,7 @@
                 android:layout_marginTop="12dp"
                 android:text="سایت‌های بین‌المللی برای تست دسترسی"
                 android:textColor="#222222"
-                android:textStyle="bold" //>
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/etSitesIntl"
@@ -818,7 +818,7 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" //>
+                android:textSize="13sp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -826,7 +826,7 @@
                 android:layout_marginTop="12dp"
                 android:text="سایت‌های داخلی برای تست دسترسی"
                 android:textColor="#222222"
-                android:textStyle="bold" //>
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/etSitesLocal"
@@ -837,7 +837,7 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" //>
+                android:textSize="13sp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -845,7 +845,7 @@
                 android:layout_marginTop="12dp"
                 android:text="آدرس فایل‌های تست سرعت دانلود"
                 android:textColor="#222222"
-                android:textStyle="bold" //>
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/etSpeed"
@@ -856,7 +856,7 @@
                 android:layoutDirection="ltr"
                 android:minLines="3"
                 android:textDirection="ltr"
-                android:textSize="13sp" //>
+                android:textSize="13sp" />
 
                 <CheckBox
                     android:id="@+id/cbSpeedTest"
@@ -864,25 +864,25 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:checked="false"
-                    android:text="اجرای تست سرعت دانلود در تست کامل" //>
+                    android:text="اجرای تست سرعت دانلود در تست کامل" />
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="در حالت خاموش، تست کامل بدون دانلود فایل حجیم اجرا می‌شود."
                     android:textColor="#607080"
-                    android:textSize="12sp" //>
+                    android:textSize="12sp" />
                 <Button
                     android:id="@+id/btnSave"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="ذخیره" //>
+                    android:text="ذخیره" />
 
                 <Button
                     android:id="@+id/btnReset"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="بازگشت به پیش‌فرض" //>
+                    android:text="بازگشت به پیش‌فرض" />
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
