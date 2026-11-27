@@ -23,6 +23,12 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Add iperf3 Android ARM64 engine
+        run: |
+          mkdir -p app/src/main/assets
+          curl -L --fail --retry 3 "https://raw.githubusercontent.com/davidBar-On/android-iperf3/gh-pages/libs/arm64-v8a/iperf3.21" -o app/src/main/assets/iperf3-arm64
+          file app/src/main/assets/iperf3-arm64
+
       - name: Build APK
         run: gradle assembleDebug --no-daemon
 
