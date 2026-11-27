@@ -142,6 +142,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cm: ConnectivityManager
     private var running = false
     private var plotJob: Job? = null
+    private var dnsJob: Job? = null
     private var lastPlotReport = ""
     private val log = StringBuilder()
 
@@ -492,58 +493,59 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun runDnsLookup() {
+        if (dnsJob?.isActive == true) {
+            dnsJob?.cancel()
+            return
+        }
         val domain = etDnsLookup.text.toString().trim().trimEnd('.')
         if (domain.isBlank() || !domain.contains(".")) {
-            Toast.makeText(this, "دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show(); return
+            Toast.makeText(this, "دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show()
+            return
         }
         val server = spDnsServer.selectedItem?.toString() ?: return
-        btnDnsLookup.isEnabled = false
-        tvDnsLookupResult.text = "در حال ارسال درخواست مستقیم به $server:53 ..."
+        val selected = spDnsType.selectedItem?.toString() ?: "A"
+        btnDnsLookup.text = "توقف پایش زنده"
+        btnDnsLookup.isEnabled = true
         dnsChartsContainer.removeAllViews()
-        lifecycleScope.launch {
+        val chart = DnsRecordGraphView(this).apply { recordName = "DNS ANY • زمان پاسخ زنده" }
+        dnsChartsContainer.addView(chart, LinearLayout.LayoutParams(-1, (170 * resources.displayMetrics.density).toInt()))
+        tvDnsLookupResult.text = "در حال دریافت پاسخ ANY از $server:53 و پایش پیوسته زمان پاسخ…"
+        dnsJob = lifecycleScope.launch {
+            val samples = ArrayList<Double>()
+            var round = 0
             try {
-                val selected = spDnsType.selectedItem.toString()
-                val types = if (selected == "تمام رکوردها") DnsLookup.supportedTypes() else listOf(selected)
-                val samples = withContext(Dispatchers.IO) {
-                    types.map { type ->
-                        val points = ArrayList<Double>()
-                        var last: DnsResult? = null
-                        repeat(10) { n ->
-                            val started = System.nanoTime()
-                            last = DnsLookup.query(server, domain, type)
-                            val elapsed = (System.nanoTime() - started) / 1_000_000.0
-                            points.add(
-                                if (last?.error != null || last?.status == null) -1.0
-                                else if (last?.status == 0 && last?.answers?.isNotEmpty() == true) elapsed
-                                else -2.0
-                            )
-                            if (n < 9) Thread.sleep(800)
-                        }
-                        Triple(type, points, last!!)
+                while (true) {
+                    round++
+                    val started = System.nanoTime()
+                    val result = withContext(Dispatchers.IO) {
+                        DnsLookup.query(server, domain, if (selected == "تمام رکوردها") "ANY" else selected)
                     }
-                }
-                val report = buildString {
-                    append("دامنه: $domain\nDNS Server: $server:53\nتعداد نمونه: ۱۰\n")
-                    samples.forEach { (type, points, result) ->
-                        append("\n━━━━ $type ━━━━\n")
-                        append("دارای رکورد: ${points.count { it >= 0 }} از ۱۰ | پاسخ بدون رکورد: ${points.count { it == -2.0 }} | بدون پاسخ: ${points.count { it == -1.0 }}\\n")
-                        val responseTimes = points.filter { it >= 0 || it == -2.0 }
-                        append("میانگین زمان پاسخ DNS: ${if (responseTimes.isNotEmpty()) String.format(Locale.US, "%.1f ms", responseTimes.average()) else "بدون پاسخ"}\\n")
-                        if (result.answers.isNotEmpty()) result.answers.forEach { append("• ${it.value} (TTL ${it.ttl})\n") }
-                        else append(if (result.error != null) "خطا: ${result.error}\n" else "پاسخ بدون رکورد؛ RCODE=${result.status}\n")
-                        val chart = DnsRecordGraphView(this@MainActivity).apply {
-                            recordName = type
-                            latencySamples = points
-                        }
-                        dnsChartsContainer.addView(chart, LinearLayout.LayoutParams(-1, (150 * resources.displayMetrics.density).toInt()).apply {
-                            bottomMargin = (10 * resources.displayMetrics.density).toInt()
-                        })
+                    val elapsed = (System.nanoTime() - started) / 1_000_000.0
+                    val point = if (result.error != null || result.status == null) -1.0 else elapsed
+                    samples.add(point)
+                    if (samples.size > 120) samples.removeAt(0)
+                    chart.latencySamples = samples.toList()
+                    val answerText = if (result.answers.isEmpty()) {
+                        if (result.error != null) "خطا: ${result.error}" else "پاسخ بدون رکورد (RCODE=${result.status})"
+                    } else result.answers.joinToString("\\n") { "• ${it.type}: ${it.value} (TTL ${it.ttl})" }
+                    val avg = samples.filter { it >= 0 }.average().takeIf { !it.isNaN() }
+                    tvDnsLookupResult.text = buildString {
+                        append("دامنه: $domain\\nDNS Server: $server:53\\n")
+                        append("نوع درخواست: ${if (selected == "تمام رکوردها") "ANY (درخواست همه انواع)" else selected}\\n")
+                        append("نمونه: $round | آخرین پاسخ: ${if (point >= 0) String.format(Locale.US, "%.1f ms", point) else "بدون پاسخ"}")
+                        append(" | میانگین: ${avg?.let { String.format(Locale.US, "%.1f ms", it) } ?: "—"}\\n")
+                        append("پاسخ رکوردها:\\n$answerText\\n\\n")
+                        append("پایش زنده فعال است؛ برای پایان، دکمه توقف را بزنید.")
                     }
+                    delay(1000)
                 }
-                tvDnsLookupResult.text = report
+            } catch (_: CancellationException) {
+                tvDnsLookupResult.append("\\n\\nپایش متوقف شد.")
             } catch (e: Exception) {
                 tvDnsLookupResult.text = "خطا در تست DNS: ${e.message ?: e.javaClass.simpleName}"
-            } finally { btnDnsLookup.isEnabled = true }
+            } finally {
+                btnDnsLookup.text = "شروع پایش DNS"
+            }
         }
     }
 
@@ -932,7 +934,7 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { JSONArray() }
         if (arr.length() < 2) {
             AlertDialog.Builder(this).setTitle("مقایسه دو تست")
-                .setMessage("برای مقایسه، ابتدا تست کامل را روی اینترنت اول اجرا کنید؛ سپس اینترنت را دستی تغییر دهید و تست دوم را اجرا کنید.")
+                .setMessage("برای مقایسه، ابتدا دو تست کامل اجرا کنید.")
                 .setPositiveButton("متوجه شدم", null).show()
             return
         }
@@ -942,31 +944,55 @@ class MainActivity : AppCompatActivity() {
         fun delta(label: String, key: String, unit: String, lowerBetter: Boolean): String {
             val a = numeric(older.optString(key))
             val b = numeric(newer.optString(key))
-            if (a == null || b == null) return "$label: داده کافی برای محاسبه اختلاف وجود ندارد"
+            if (a == null || b == null) return "$label: داده کافی نیست"
             val diff = b - a
             val direction = when {
                 kotlin.math.abs(diff) < 0.0001 -> "بدون تغییر"
                 (diff < 0 && lowerBetter) || (diff > 0 && !lowerBetter) -> "بهبود"
                 else -> "افت"
             }
-            return "$label: ${"%.1f".format(Locale.US, a)} → ${"%.1f".format(Locale.US, b)} $unit  |  اختلاف: ${if (diff > 0) "+" else ""}${"%.1f".format(Locale.US, diff)} $unit ($direction)"
+            return "$label\\nقبلی: ${"%.1f".format(Locale.US, a)} $unit  |  جدید: ${"%.1f".format(Locale.US, b)} $unit\\nاختلاف: ${if (diff > 0) "+" else ""}${"%.1f".format(Locale.US, diff)} $unit ($direction)"
+        }
+        fun siteRows(report: String): Map<String, String> {
+            val map = LinkedHashMap<String, String>()
+            report.lines().forEach { line ->
+                val match = Regex("^(.+?) \\((داخلی|بین‌المللی)\\): (.+)$").find(line.trim())
+                if (match != null) map[match.groupValues[1].trim()] = match.groupValues[3].trim()
+            }
+            return map
+        }
+        val oldSites = siteRows(older.optString("report"))
+        val newSites = siteRows(newer.optString("report"))
+        val siteComparison = buildString {
+            append("مقایسه تست سایت‌ها (زمان پاسخ HTTP)\\n")
+            val names = (oldSites.keys + newSites.keys).distinct()
+            if (names.isEmpty()) append("اطلاعات جزئی سایت‌ها در این دو گزارش ذخیره نشده است.\\n")
+            names.forEach { name ->
+                val a = oldSites[name] ?: "در تست قبلی وجود نداشت"
+                val b = newSites[name] ?: "در تست جدید وجود ندارد"
+                val am = numeric(a); val bm = numeric(b)
+                append("\\n$name\\nقبلی: $a\\nجدید: $b")
+                if (am != null && bm != null) {
+                    val diff = bm - am
+                    val label = if (kotlin.math.abs(diff) < 0.0001) "بدون تغییر" else if (diff < 0) "سریع‌تر" else "کندتر"
+                    append("\\nاختلاف زمان: ${if (diff > 0) "+" else ""}${"%.0f".format(Locale.US, diff)} ms ($label)")
+                }
+                append("\\n")
+            }
         }
         val report = buildString {
-            append("مقایسه دو تست کامل اینترنت\n")
-            append("تست اول: ${older.optString("operator")} | ${older.optString("time")} | ${older.optString("network")}\n")
-            append("تست دوم: ${newer.optString("operator")} | ${newer.optString("time")} | ${newer.optString("network")}\n\n")
-            append("خلاصه شاخص‌های عددی\n")
-            append(delta("میانگین Ping", "ping", "ms", true)).append("\n")
-            append(delta("Packet Loss", "loss", "%", true)).append("\n")
-            append(delta("سرعت دانلود", "speed", "Mbps", false)).append("\n\n")
-            append("نتیجه تست اول: ${older.optString("verdict")}\n")
-            append("نتیجه تست دوم: ${newer.optString("verdict")}\n\n")
-            append("گزارش کامل تست اول\n${older.optString("report")}\n\n")
-            append("════════════════════════════════\n")
-            append("گزارش کامل تست دوم\n${newer.optString("report")}\n\n")
-            append("توجه: تست‌ها باید با مقصدها و تنظیمات یکسان و در فاصله زمانی نزدیک اجرا شوند. اعداد مربوط به دو اجرای آخر هستند.")
+            append("مقایسه دو تست کامل اینترنت\\n")
+            append("تست قبلی: ${older.optString("operator")} | ${older.optString("time")} | ${older.optString("network")}\\n")
+            append("تست جدید: ${newer.optString("operator")} | ${newer.optString("time")} | ${newer.optString("network")}\\n\\n")
+            append(delta("میانگین Ping", "ping", "ms", true)).append("\\n\\n")
+            append(delta("Packet Loss", "loss", "%", true)).append("\\n\\n")
+            append(delta("سرعت دانلود", "speed", "Mbps", false)).append("\\n\\n")
+            append(siteComparison).append("\\n")
+            append("نتیجه قبلی: ${older.optString("verdict")}\\n")
+            append("نتیجه جدید: ${newer.optString("verdict")}\\n\\n")
+            append("توجه: برای مقایسه دقیق، تست‌ها را با تنظیمات و سایت‌های یکسان اجرا کنید.")
         }
-        AlertDialog.Builder(this).setTitle("مقایسه کامل دو تست")
+        AlertDialog.Builder(this).setTitle("مقایسه عددی دو تست آخر")
             .setMessage(report)
             .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
             .setNegativeButton("بستن", null).show()
