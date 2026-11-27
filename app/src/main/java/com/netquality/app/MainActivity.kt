@@ -951,61 +951,115 @@ class MainActivity : AppCompatActivity() {
         }
         val newer = arr.getJSONObject(0)
         val older = arr.getJSONObject(1)
-        fun number(value: String): Double? = Regex("-?\\d+(?:\\.\\d+)?").find(value)?.value?.toDoubleOrNull()
-        fun siteRows(report: String): Map<String, Double> {
-            val map = LinkedHashMap<String, Double>()
-            report.lines().forEach { line ->
-                val match = Regex("^(.+?) \\((داخلی|بین‌المللی)\\): (.+)$").find(line.trim())
-                if (match != null) number(match.groupValues[3])?.let { map[match.groupValues[1].trim()] = it }
+        data class Entry(val section: String, val label: String, val value: String, val number: Double?, val unit: String)
+
+        fun extract(item: JSONObject): LinkedHashMap<String, Entry> {
+            val result = LinkedHashMap<String, Entry>()
+            var section = "اطلاعات عمومی"
+            item.optString("report").lines().forEach { raw ->
+                val line = raw.trim()
+                if (line.isBlank() || line.startsWith("━━") || line.startsWith("━━━━━━━━")) return@forEach
+                if (line.startsWith("◆")) { section = line.removePrefix("◆").trim(); return@forEach }
+                line.split("|").map { it.trim() }.filter { it.isNotBlank() }.forEach { part ->
+                    val colon = part.indexOf(':')
+                    val label = if (colon > 0) part.substring(0, colon).trim()
+                                else part.takeWhile { !it.isDigit() }.trim().ifBlank { "شاخص" }
+                    val number = Regex("-?\\d+(?:[.,]\\d+)?").find(part)?.value?.replace(',', '.')?.toDoubleOrNull()
+                    val unit = when {
+                        part.contains("Mbps", true) -> "Mbps"
+                        part.contains("ms", true) -> "ms"
+                        part.contains("dBm", true) -> "dBm"
+                        part.contains("MHz", true) -> "MHz"
+                        part.contains("%") || part.contains("٪") -> "%"
+                        else -> ""
+                    }
+                    val base = section + "|" + label
+                    val key = if (result.containsKey(base)) base + "|" + result.size else base
+                    result[key] = Entry(section, label, part, number, unit)
+                }
             }
-            return map
+            return result
         }
-        val oldSites = siteRows(older.optString("report"))
-        val newSites = siteRows(newer.optString("report"))
-        val siteNames = (oldSites.keys + newSites.keys).distinct()
-        val labels = mutableListOf("Ping", "Packet Loss", "دانلود")
-        val oldValues = mutableListOf(number(older.optString("ping")) ?: 0.0, number(older.optString("loss")) ?: 0.0, number(older.optString("speed")) ?: 0.0)
-        val newValues = mutableListOf(number(newer.optString("ping")) ?: 0.0, number(newer.optString("loss")) ?: 0.0, number(newer.optString("speed")) ?: 0.0)
-        siteNames.forEach { name ->
-            labels.add(name.take(11))
-            oldValues.add(oldSites[name] ?: 0.0)
-            newValues.add(newSites[name] ?: 0.0)
+
+        val oldMap = extract(older)
+        val newMap = extract(newer)
+        val keys = (oldMap.keys + newMap.keys).distinct()
+        val rows = keys.map { key ->
+            val a = oldMap[key]; val b = newMap[key]
+            val e = b ?: a!!
+            Triple(e, a, b)
         }
-        val scale = labels.indices.map { maxOf(oldValues[it], newValues[it], 1.0) }
-        val charts = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(8, 8, 8, 8) }
-        fun addTestChart(title: String, subtitle: String, values: List<Double>) {
-            val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(8, 8, 8, 8) }
-            val heading = TextView(this).apply {
-                text = "$title\\n$subtitle"
-                textSize = 12f
-                setTextColor(0xFF17324D.toInt())
-                setTypeface(typeface, Typeface.BOLD)
-                gravity = android.view.Gravity.CENTER
-            }
-            column.addView(heading, LinearLayout.LayoutParams(-1, -2))
-            val chart = TestComparisonGraphView(this).apply {
-                metricLabels = labels
-                metricValues = values
-                metricScales = scale
-            }
-            column.addView(chart, LinearLayout.LayoutParams(-1, (260 * resources.displayMetrics.density).toInt()))
-            charts.addView(column, LinearLayout.LayoutParams(0, -2, 1f))
+        val metrics = rows.filter { it.second?.number != null || it.third?.number != null }.map {
+            ComparisonMetric(it.first.label, it.second?.number, it.third?.number,
+                it.third?.unit?.takeIf { u -> u.isNotBlank() } ?: it.second?.unit.orEmpty())
         }
+
         val timeOld = older.optString("time").ifBlank { "زمان ثبت نشده" }
         val timeNew = newer.optString("time").ifBlank { "زمان ثبت نشده" }
-        addTestChart("تست قبلی", timeOld, oldValues)
-        addTestChart("تست جدید", timeNew, newValues)
-        val legend = TextView(this).apply {
-            text = "مقادیر روی ستون‌ها عدد واقعی هر شاخص هستند. مقیاس هر شاخص جداگانه تنظیم شده است. برای سایت‌ها زمان پاسخ بر حسب ms نمایش داده می‌شود."
-            textSize = 12f; setTextColor(0xFF526579.toInt()); setPadding(12, 8, 12, 8)
-        }
-        val wrapper = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(charts); addView(legend) }
-        val scroll = ScrollView(this).apply { addView(wrapper) }
-        AlertDialog.Builder(this).setTitle("مقایسه نموداری دو تست کامل")
-            .setView(scroll)
-            .setPositiveButton("اشتراک‌گذاری گزارش متنی") { _, _ ->
-                share("تست قبلی: $timeOld\\nPing: ${older.optString("ping")} | Loss: ${older.optString("loss")} | Download: ${older.optString("speed")}\\n\\nتست جدید: $timeNew\\nPing: ${newer.optString("ping")} | Loss: ${newer.optString("loss")} | Download: ${newer.optString("speed")}")
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(14, 10, 14, 12) }
+        content.addView(TextView(this).apply {
+            text = "تست قبلی: " + timeOld + "\nتست جدید: " + timeNew +
+                "\n\nهمه موارد ثبت‌شده در گزارش، شامل موارد عددی و وضعیت‌های متنی، در ادامه مقایسه شده‌اند."
+            textSize = 12f; setTextColor(0xFF526579.toInt()); setPadding(4, 4, 4, 12)
+        })
+        content.addView(TextView(this).apply {
+            text = "مقایسه نموداری تمام شاخص‌های عددی"; textSize = 15f
+            setTextColor(0xFF17324D.toInt()); setTypeface(typeface, Typeface.BOLD); setPadding(4, 8, 4, 8)
+        })
+        if (metrics.isNotEmpty()) {
+            val chart = TestComparisonGraphView(this).apply { comparisonMetrics = metrics }
+            val height = ((metrics.size * 62 + 56) * resources.displayMetrics.density).toInt()
+            content.addView(chart, LinearLayout.LayoutParams(-1, height))
+        } else content.addView(TextView(this).apply { text = "شاخص عددی برای رسم نمودار وجود ندارد." })
+
+        content.addView(TextView(this).apply {
+            text = "جزئیات کامل مقایسه"; textSize = 15f
+            setTextColor(0xFF17324D.toInt()); setTypeface(typeface, Typeface.BOLD); setPadding(4, 18, 4, 8)
+        })
+        rows.groupBy { it.first.section }.forEach { (section, sectionRows) ->
+            content.addView(TextView(this).apply {
+                text = section; textSize = 13f; setTextColor(0xFF087E8B.toInt())
+                setTypeface(typeface, Typeface.BOLD); setPadding(4, 12, 4, 6)
+            })
+            sectionRows.forEach { row ->
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL; setPadding(12, 10, 12, 10)
+                    background = ContextCompat.getDrawable(this@MainActivity, R.drawable.report_card)
+                }
+                card.addView(TextView(this).apply {
+                    text = row.first.label; textSize = 12f; setTextColor(0xFF17324D.toInt())
+                    setTypeface(typeface, Typeface.BOLD)
+                })
+                card.addView(TextView(this).apply {
+                    text = "تست قبلی: " + (row.second?.value ?: "در گزارش قبلی ثبت نشده")
+                    textSize = 11f; setTextColor(0xFF526579.toInt()); setPadding(0, 5, 0, 2)
+                })
+                card.addView(TextView(this).apply {
+                    text = "تست جدید: " + (row.third?.value ?: "در گزارش جدید ثبت نشده")
+                    textSize = 11f; setTextColor(0xFF087E8B.toInt())
+                })
+                content.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
+                    bottomMargin = (7 * resources.displayMetrics.density).toInt()
+                })
             }
+        }
+        val report = buildString {
+            append("مقایسه کامل دو تست\nتست قبلی: ").append(timeOld)
+            append("\nتست جدید: ").append(timeNew).append("\n\n")
+            rows.groupBy { it.first.section }.forEach { (section, sectionRows) ->
+                append("【").append(section).append("】\n")
+                sectionRows.forEach { row ->
+                    append(row.first.label).append("\n  قبلی: ")
+                        .append(row.second?.value ?: "ثبت نشده").append("\n  جدید: ")
+                        .append(row.third?.value ?: "ثبت نشده").append("\n")
+                }
+                append("\n")
+            }
+        }
+        val scroll = ScrollView(this).apply { addView(content) }
+        AlertDialog.Builder(this).setTitle("مقایسه کامل دو تست")
+            .setView(scroll)
+            .setPositiveButton("اشتراک‌گذاری گزارش کامل") { _, _ -> share(report) }
             .setNegativeButton("بستن", null).show()
     }
 
