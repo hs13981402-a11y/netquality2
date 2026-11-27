@@ -187,45 +187,46 @@ object Net {
         val jitterMs: Double, val throughputMbps: Double
     )
 
-    /** اجرای iperf3 واقعی روی باینری Android arm64 بسته‌بندی‌شده در nativeLibraryDir. */
-    fun iperfUdpTest(host: String, port: Int, bitrate: String, durationSeconds: Int = 10): IperfUdpResult {
-        val binary = java.io.File(
-            android.os.BuildConfig.APPLICATION_ID.let { appId ->
-                // nativeLibraryDir points to the extracted executable packaged as a native asset.
-                // The path is supplied by the caller through the system property below.
-                System.getProperty("netquality.iperf.path") ?: ""
+    data class IperfUdpResult(
+        val host: String, val port: Int, val bitrate: String,
+        val sentPackets: Long, val lostPackets: Long, val lossPercent: Double,
+        val jitterMs: Double, val throughputMbps: Double
+    )
+
+    fun iperfUdpTest(context: android.content.Context, host: String, port: Int, bitrate: String, durationSeconds: Int = 10): IperfUdpResult {
+        val executable = java.io.File(context.filesDir, "iperf3")
+        if (!executable.exists()) {
+            context.assets.open("iperf3-arm64").use { input ->
+                executable.outputStream().use { output -> input.copyTo(output) }
             }
-        )
-        val executable = if (binary.isFile) binary else throw IllegalStateException(
-            "موتور iperf3 برای این معماری در برنامه موجود نیست."
-        )
-        if (!executable.canExecute()) executable.setExecutable(true, false)
-        val command = listOf(
+        }
+        if (!executable.setExecutable(true, false) && !executable.canExecute()) {
+            throw IllegalStateException("اجازه اجرای موتور iperf3 داده نشد.")
+        }
+        val outputFile = java.io.File(context.cacheDir, "iperf3-result.json")
+        val process = ProcessBuilder(
             executable.absolutePath, "-c", host, "-p", port.toString(),
             "-u", "-b", bitrate, "-l", "1200", "-t", durationSeconds.toString(), "-J"
-        )
-        val process = ProcessBuilder(command).redirectErrorStream(true).start()
-        val output = process.inputStream.bufferedReader().use { it.readText() }
-        if (!process.waitFor(5L, java.util.concurrent.TimeUnit.SECONDS)) {
+        ).redirectErrorStream(true).redirectOutput(outputFile).start()
+        if (!process.waitFor((durationSeconds + 25).toLong(), java.util.concurrent.TimeUnit.SECONDS)) {
             process.destroyForcibly()
-            throw IllegalStateException("زمان پاسخ‌گویی سرور iperf3 به پایان رسید.")
+            throw IllegalStateException("زمان آزمون iperf3 به پایان رسید.")
         }
+        val output = outputFile.readText()
+        outputFile.delete()
         if (process.exitValue() != 0) {
-            throw IllegalStateException(output.takeLast(700).ifBlank { "ارتباط با سرور iperf3 برقرار نشد." })
+            throw IllegalStateException(output.takeLast(700).ifBlank { "اتصال به سرور iperf3 برقرار نشد." })
         }
         val json = org.json.JSONObject(output)
-        val end = json.optJSONObject("end") ?: throw IllegalStateException("پاسخ JSON سرور ناقص است.")
-        val summary = end.optJSONObject("sum_received")
-            ?: end.optJSONObject("sum")
-            ?: end.optJSONObject("sum_sent")
-            ?: throw IllegalStateException("آمار UDP در خروجی iperf3 پیدا نشد.")
+        val end = json.optJSONObject("end") ?: throw IllegalStateException("خروجی سرور iperf3 ناقص است.")
+        val summary = end.optJSONObject("sum") ?: end.optJSONObject("sum_received")
+            ?: end.optJSONObject("sum_sent") ?: throw IllegalStateException("آمار UDP در خروجی موجود نیست.")
         val sent = summary.optLong("packets", 0L)
         val lost = summary.optLong("lost_packets", 0L)
-        val loss = summary.optDouble("lost_percent",
-            if (sent > 0) lost * 100.0 / sent else 0.0)
-        val jitter = summary.optDouble(" jitter_ms", summary.optDouble("jitter_ms", 0.0))
+        val loss = summary.optDouble("lost_percent", if (sent > 0) lost * 100.0 / sent else 0.0)
+        val jitter = summary.optDouble("jitter_ms", 0.0)
         val mbps = summary.optDouble("bits_per_second", 0.0) / 1_000_000.0
-        if (sent <= 0) throw IllegalStateException("سرور پاسخی با آمار بسته‌های UDP برنگرداند.")
+        if (sent <= 0) throw IllegalStateException("سرور آمار بسته‌های UDP را برنگرداند.")
         return IperfUdpResult(host, port, bitrate, sent, lost, loss, jitter, mbps)
     }
 
