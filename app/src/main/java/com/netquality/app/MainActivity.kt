@@ -502,7 +502,11 @@ class MainActivity : AppCompatActivity() {
                             val started = System.nanoTime()
                             last = DnsLookup.query(server, domain, type)
                             val elapsed = (System.nanoTime() - started) / 1_000_000.0
-                            points.add(if (last?.error == null && last?.status == 0) elapsed else -1.0)
+                            points.add(
+                                if (last?.error != null || last?.status == null) -1.0
+                                else if (last?.status == 0 && last?.answers?.isNotEmpty() == true) elapsed
+                                else -2.0
+                            )
                             if (n < 9) Thread.sleep(800)
                         }
                         Triple(type, points, last!!)
@@ -512,8 +516,9 @@ class MainActivity : AppCompatActivity() {
                     append("دامنه: $domain\nDNS Server: $server:53\nتعداد نمونه: ۱۰\n")
                     samples.forEach { (type, points, result) ->
                         append("\n━━━━ $type ━━━━\n")
-                        append("موفق: ${points.count { it >= 0 }} از ۱۰ | ناموفق: ${points.count { it < 0 }}\n")
-                        append("میانگین زمان پاسخ: ${if (points.any { it >= 0 }) String.format(Locale.US, "%.1f ms", points.filter { it >= 0 }.average()) else "بدون پاسخ"}\n")
+                        append("دارای رکورد: ${points.count { it >= 0 }} از ۱۰ | پاسخ بدون رکورد: ${points.count { it == -2.0 }} | بدون پاسخ: ${points.count { it == -1.0 }}\\n")
+                        val responseTimes = points.filter { it >= 0 || it == -2.0 }
+                        append("میانگین زمان پاسخ DNS: ${if (responseTimes.isNotEmpty()) String.format(Locale.US, "%.1f ms", responseTimes.average()) else "بدون پاسخ"}\\n")
                         if (result.answers.isNotEmpty()) result.answers.forEach { append("• ${it.value} (TTL ${it.ttl})\n") }
                         else append(if (result.error != null) "خطا: ${result.error}\n" else "پاسخ بدون رکورد؛ RCODE=${result.status}\n")
                         val chart = DnsRecordGraphView(this@MainActivity).apply {
