@@ -10,6 +10,7 @@ import kotlin.math.max
 class DnsRecordGraphView(context: Context) : View(context) {
     var recordName: String = ""
     var latencySamples: List<Double> = emptyList()
+        set(value) { field = value; invalidate() }
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
