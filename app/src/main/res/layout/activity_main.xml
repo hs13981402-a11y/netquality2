@@ -265,7 +265,10 @@
             android:id="@+id/panelPlot"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone">
+            android:visibility="gone"
+                    android:clipToPadding="false"
+                    android:scrollbarStyle="outsideOverlay"
+                    android:fadeScrollbars="true">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -281,7 +284,12 @@
                     android:inputType="textUri"
                     android:layoutDirection="ltr"
                     android:text="8.8.8.8"
-                    android:textDirection="ltr" />
+                    android:textDirection="ltr" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="52dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
                 <RadioGroup
                     android:layout_width="match_parent"
@@ -309,7 +317,12 @@
                     android:hint="پورت (فقط برای حالت TCP)"
                     android:inputType="number"
                     android:layoutDirection="ltr"
-                    android:text="443" />
+                    android:text="443" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="52dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -326,13 +339,22 @@
                     android:inputType="number"
                     android:singleLine="true"
                     android:text="1"
-                    android:hint="عدد بین ۱ تا ۶۰ ثانیه" />
+                    android:hint="عدد بین ۱ تا ۶۰ ثانیه" /
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:minHeight="52dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
 
                 <Button
                     android:id="@+id/btnPlot"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="شروع" />
+                    android:text="شروع" /
+                    android:backgroundTint="#0E9F9A"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:minHeight="54dp">
 
                 <TextView
                     android:id="@+id/tvPlotInfo"
@@ -364,8 +386,9 @@
                     android:lineSpacingExtra="5dp"
                     android:fontFamily="monospace"
                     android:typeface="monospace"
-                    android:padding="12dp"
-                    android:background="@drawable/report_card" />
+                    android:padding="16dp"
+                    android:background="@drawable/report_card" /
+                    android:elevation="1dp">
 
                 <Button
                     android:id="@+id/btnSharePlot"
@@ -381,7 +404,10 @@
             android:id="@+id/panelChart"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone">
+            android:visibility="gone"
+                    android:clipToPadding="false"
+                    android:scrollbarStyle="outsideOverlay"
+                    android:fadeScrollbars="true">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -444,7 +470,10 @@
             android:id="@+id/panelFilter"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone">
+            android:visibility="gone"
+                    android:clipToPadding="false"
+                    android:scrollbarStyle="outsideOverlay"
+                    android:fadeScrollbars="true">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -489,7 +518,10 @@
                     android:layoutDirection="ltr"
                     android:textDirection="ltr"
                     android:padding="12dp"
-                    android:background="@drawable/input_card" />
+                    android:background="@drawable/input_card" /
+                    android:minHeight="52dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -510,7 +542,8 @@
                     android:text="شروع بررسی دسترسی"
                     android:textStyle="bold"
                     android:textColor="#FFFFFF"
-                    android:backgroundTint="#087E8B" />
+                    android:backgroundTint="#0E9F9A" /
+                    android:minHeight="54dp">
                 <ProgressBar
                     android:id="@+id/filterProgress"
                     style="?android:attr/progressBarStyleHorizontal"
@@ -570,7 +603,10 @@
             android:id="@+id/panelDns"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone">
+            android:visibility="gone"
+                    android:clipToPadding="false"
+                    android:scrollbarStyle="outsideOverlay"
+                    android:fadeScrollbars="true">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -601,7 +637,10 @@
                     android:layoutDirection="ltr"
                     android:textDirection="ltr"
                     android:padding="12dp"
-                    android:background="@drawable/input_card" />
+                    android:background="@drawable/input_card" /
+                    android:minHeight="52dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -624,8 +663,11 @@
                         android:singleLine="true"
                         android:layoutDirection="ltr"
                         android:textDirection="ltr"
-                        android:padding="10dp"
-                        android:background="@drawable/input_card" />
+                        android:padding="12dp"
+                        android:background="@drawable/input_card" /
+                    android:minHeight="52dp"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6">
                     <Button
                         android:id="@+id/btnAddDnsServer"
                         android:layout_width="wrap_content"
@@ -660,20 +702,23 @@
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
                     android:text="استعلام رکورد DNS"
-                    android:backgroundTint="#087E8B"
-                    android:textColor="#FFFFFF" />
+                    android:backgroundTint="#0E9F9A"
+                    android:textColor="#FFFFFF" /
+                    android:textStyle="bold"
+                    android:minHeight="54dp">
                 <TextView
                     android:id="@+id/tvDnsLookupResult"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:padding="18dp"
+                    android:padding="16dp"
                     android:background="@drawable/report_card"
                     android:text="نتیجه استعلام در این قسمت نمایش داده می‌شود."
                     android:textColor="#243B53"
                     android:textSize="14sp"
                     android:lineSpacingExtra="6dp"
-                    android:textIsSelectable="true" />
+                    android:textIsSelectable="true" /
+                    android:elevation="1dp">
             </LinearLayout>
         </ScrollView>
 
@@ -682,7 +727,10 @@
             android:id="@+id/panelSettings"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone">
+            android:visibility="gone"
+                    android:clipToPadding="false"
+                    android:scrollbarStyle="outsideOverlay"
+                    android:fadeScrollbars="true">
 
             <LinearLayout
                 android:layout_width="match_parent"
