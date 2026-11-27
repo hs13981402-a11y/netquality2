@@ -126,6 +126,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnHistory: Button
     private lateinit var progress: ProgressBar
     private lateinit var cbAuto: CheckBox
+    private lateinit var cbUploadTest: CheckBox
 
     private lateinit var etHost: EditText
     private lateinit var etPort: EditText
@@ -206,6 +207,11 @@ class MainActivity : AppCompatActivity() {
         btnHistory = findViewById(R.id.btnHistory)
         progress = findViewById(R.id.progress)
         cbAuto = findViewById(R.id.cbAuto)
+        cbUploadTest = findViewById(R.id.cbUploadTest)
+        cbUploadTest.isChecked = getSharedPreferences("netq", MODE_PRIVATE).getBoolean("upload_test_enabled", false)
+        cbUploadTest.setOnCheckedChangeListener { _, checked ->
+            getSharedPreferences("netq", MODE_PRIVATE).edit().putBoolean("upload_test_enabled", checked).apply()
+        }
 
         etHost = findViewById(R.id.etHost)
         etPort = findViewById(R.id.etPort)
@@ -651,6 +657,7 @@ class MainActivity : AppCompatActivity() {
         val sites = Config.lines(this, "sites_intl").map { Site(Config.siteName(it), Config.normUrl(it), false) } +
                 Config.lines(this, "sites_local").map { Site(Config.siteName(it), Config.normUrl(it), true) }
         val speedUrls = Config.lines(this, "speed").map { Config.normUrl(it) }
+        val uploadEnabled = cbUploadTest.isChecked
 
         lifecycleScope.launch {
             var severity = 0
@@ -750,7 +757,18 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                // ۴) دسترسی سایت‌ها + Captive Portal
+                // ۴) Packet Loss در پروب‌های UDP/DNS
+                val udpServer = dnsServers.firstOrNull() ?: "1.1.1.1"
+                tvStatus.text = "⏳ در حال بررسی Packet Loss در UDP…"
+                val udpBaseline = withContext(Dispatchers.IO) {
+                    Net.udpLossTest(udpServer, "google.com", 8)
+                }
+                add("📦 Packet Loss در UDP (پروب DNS/53)\nسرور: $udpServer | ارسال: ${udpBaseline.sent} | پاسخ: ${udpBaseline.received} | افت پاسخ: ${f1(udpBaseline.loss)}٪")
+                if (udpBaseline.loss >= 25.0) {
+                    issue(1, "در پروب‌های UDP/DNS افت پاسخ ${f1(udpBaseline.loss)}٪ ثبت شد؛ نتیجه به سرور و مسیر DNS/53 وابسته است.")
+                }
+
+                // ۵) دسترسی سایت‌ها + Captive Portal
                 val capDef = async(Dispatchers.IO) { Net.httpCheck("http://connectivitycheck.gstatic.com/generate_204", false) }
                 val siteDefs = sites.map { s -> async(Dispatchers.IO) { Net.httpCheck(s.url, true) } }
                 val cap = capDef.await()
@@ -791,7 +809,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                // ۵) سرعت دانلود
+                // ۶) سرعت دانلود
                 val reachable = inetOk || siteRes.any { it.ok }
                 val speedEnabled = getSharedPreferences("netq", MODE_PRIVATE).getBoolean("speed_test_enabled", false)
                 if (speedEnabled && reachable && !captivePortal && speedUrls.isNotEmpty()) {
@@ -817,6 +835,29 @@ class MainActivity : AppCompatActivity() {
                 } else if (!speedEnabled) {
                     speedText = "غیرفعال (طبق تنظیمات)"
                     add("⬇️ تست سرعت: اجرا نشد؛ این گزینه در تنظیمات غیرفعال است.")
+                }
+
+                // ۷) تست آپلود اختیاری و Packet Loss UDP حین آپلود
+                if (uploadEnabled && reachable && !captivePortal) {
+                    tvStatus.text = "⏳ در حال تست آپلود و پایش UDP…"
+                    val uploadJob = async(Dispatchers.IO) { Net.uploadTest() }
+                    val lossJob = async(Dispatchers.IO) { Net.udpLossTest(udpServer, "google.com", 12) }
+                    val uploadMbps = uploadJob.await()
+                    val uploadUdp = lossJob.await()
+                    if (uploadMbps != null) {
+                        add("⬆️ سرعت آپلود: ${f1(uploadMbps)} Mbps")
+                    } else {
+                        add("⬆️ سرعت آپلود: ناموفق؛ سرور تست یا مسیر آپلود پاسخ نداد.")
+                        issue(1, "تست آپلود ناموفق بود.")
+                    }
+                    add("📦 Packet Loss UDP حین آپلود (پروب DNS/53)\nارسال: ${uploadUdp.sent} | پاسخ: ${uploadUdp.received} | افت پاسخ: ${f1(uploadUdp.loss)}٪\nاین شاخص افت پاسخ پروب UDP هنگام اشغال مسیر آپلود را نشان می‌دهد و Packet Loss واقعی TCP آپلود نیست.")
+                    if (uploadUdp.loss >= 25.0) {
+                        issue(1, "هنگام آپلود، افت پاسخ پروب‌های UDP/DNS برابر ${f1(uploadUdp.loss)}٪ بود.")
+                    }
+                } else if (uploadEnabled) {
+                    add("⬆️ تست آپلود اجرا نشد؛ اتصال اینترنت قابل استفاده نیست یا صفحه ورود شبکه فعال است.")
+                } else {
+                    add("⬆️ تست آپلود: اجرا نشد؛ گزینه اختیاری آپلود فعال نشده است.")
                 }
             } catch (e: CancellationException) {
                 throw e
