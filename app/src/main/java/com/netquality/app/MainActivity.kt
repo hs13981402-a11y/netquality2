@@ -329,50 +329,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val iperfHost = "speedtest.uninet.az"
+    private val iperfPort = 5201
+
     private fun runStandaloneUdpLoss() {
         val button = findViewById<Button>(R.id.btnUdpLoss)
         button.isEnabled = false
-        tvUdpLossResult.text = "در حال ارسال ۳۰ پروب UDP به 1.1.1.1 ..."
+        tvUdpLossResult.text = "آزمون واقعی iperf3 UDP با نرخ 1 Mbps در حال اجراست..."
         lifecycleScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    Net.udpLossTest("1.1.1.1", "one.one.one.one", 30)
+                    Net.iperfUdpTest(this@MainActivity, iperfHost, iperfPort, "1M", 10)
                 }
-                tvUdpLossResult.text = "UDP/53  •  سرور: 1.1.1.1\nارسال‌شده: ${result.sent}\nپاسخ‌داده‌شده: ${result.received}\nPacket Loss: ${"%.1f".format(Locale.US, result.loss)}%"
+                tvUdpLossResult.text = "سرور: ${result.host}:${result.port}\nنرخ هدف: ${result.bitrate}\nبسته‌های گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ واقعی: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps"
             } catch (e: Exception) {
-                tvUdpLossResult.text = "اجرای آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}"
-            } finally {
-                button.isEnabled = true
-            }
+                tvUdpLossResult.text = "آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}\nممکن است سرور عمومی در دسترس نباشد یا UDP/5201 را محدود کرده باشد."
+            } finally { button.isEnabled = true }
         }
     }
 
     private fun runUploadUdpLoss() {
         val button = findViewById<Button>(R.id.btnUploadLoss)
         button.isEnabled = false
-        tvUploadLossResult.text = "در حال اجرای آپلود آزمایشی و پروب‌های UDP به‌صورت هم‌زمان ..."
+        tvUploadLossResult.text = "آزمون UDP Upload با نرخ هدف 10 Mbps در حال اجراست..."
         lifecycleScope.launch {
             try {
-                val (uploadMbps, udp) = coroutineScope {
-                    val upload = async(Dispatchers.IO) { Net.uploadTest() }
-                    val probes = async(Dispatchers.IO) {
-                        Net.udpLossTest("1.1.1.1", "one.one.one.one", 30)
-                    }
-                    Pair(upload.await(), probes.await())
+                val result = withContext(Dispatchers.IO) {
+                    Net.iperfUdpTest(this@MainActivity, iperfHost, iperfPort, "10M", 15)
                 }
-                tvUploadLossResult.text = buildString {
-                    append("سرعت آپلود: ")
-                    append(uploadMbps?.let { "${"%.2f".format(Locale.US, it)} Mbps" } ?: "ناموفق")
-                    append("\nپروب UDP ارسال‌شده: ${udp.sent}")
-                    append("\nپاسخ‌داده‌شده: ${udp.received}")
-                    append("\nUDP probe loss زیر بار آپلود: ${"%.1f".format(Locale.US, udp.loss)}%")
-                    append("\n\nتوجه: این عدد افت پاسخ پروب UDP در بازه آزمون است و Packet Loss مستقیم جریان آپلود محسوب نمی‌شود.")
-                }
+                tvUploadLossResult.text = "آزمون UDP Upload به سرور ${result.host}:${result.port}\nنرخ هدف ارسال: ${result.bitrate}\nبسته‌های ارسالی/گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss در مسیر Upload: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ دریافت‌شده در سرور: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps\n\nاین آزمون افت بسته‌های UDP ارسالی از گوشی به سرور را می‌سنجد؛ آزمون اشباع هم‌زمان TCP نیست."
             } catch (e: Exception) {
-                tvUploadLossResult.text = "اجرای آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}"
-            } finally {
-                button.isEnabled = true
-            }
+                tvUploadLossResult.text = "آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}\nممکن است سرور عمومی در دسترس نباشد یا UDP/5201 را محدود کرده باشد."
+            } finally { button.isEnabled = true }
         }
     }
 
