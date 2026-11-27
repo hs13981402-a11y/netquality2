@@ -292,7 +292,6 @@
                         android:textDirection="ltr"
                         android:gravity="start"
                         android:textColor="#111111"
-                        android:textDirection="ltr"
                         android:textIsSelectable="true"
                         android:textSize="11sp"
                         android:lineSpacingExtra="7dp"
