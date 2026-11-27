@@ -504,39 +504,57 @@ class MainActivity : AppCompatActivity() {
         }
         val server = spDnsServer.selectedItem?.toString() ?: return
         val selected = spDnsType.selectedItem?.toString() ?: "A"
+        val allTypes = selected == "تمام رکوردها"
+        val types = if (allTypes) DnsLookup.supportedTypes().filter { it != "ANY" } else listOf(selected)
         btnDnsLookup.text = "توقف پایش زنده"
         btnDnsLookup.isEnabled = true
         dnsChartsContainer.removeAllViews()
-        val chart = DnsRecordGraphView(this).apply { recordName = "DNS ANY • زمان پاسخ زنده" }
-        dnsChartsContainer.addView(chart, LinearLayout.LayoutParams(-1, (170 * resources.displayMetrics.density).toInt()))
-        tvDnsLookupResult.text = "در حال دریافت پاسخ ANY از $server:53 و پایش پیوسته زمان پاسخ…"
+        val histories = types.associateWith { ArrayList<Double>() }
+        val charts = types.associateWith { type ->
+            DnsRecordGraphView(this).apply { recordName = "$type • زمان پاسخ زنده" }
+        }
+        charts.values.forEach { chart ->
+            dnsChartsContainer.addView(chart, LinearLayout.LayoutParams(-1, (150 * resources.displayMetrics.density).toInt()).apply {
+                bottomMargin = (8 * resources.displayMetrics.density).toInt()
+            })
+        }
+        tvDnsLookupResult.text = "پایش پیوسته DNS برای $domain روی $server آغاز شد…"
         dnsJob = lifecycleScope.launch {
-            val samples = ArrayList<Double>()
             var round = 0
             try {
                 while (true) {
                     round++
-                    val started = System.nanoTime()
-                    val result = withContext(Dispatchers.IO) {
-                        DnsLookup.query(server, domain, if (selected == "تمام رکوردها") "ANY" else selected)
+                    val results = coroutineScope {
+                        types.map { type ->
+                            async(Dispatchers.IO) {
+                                val started = System.nanoTime()
+                                val result = DnsLookup.query(server, domain, type)
+                                val elapsed = (System.nanoTime() - started) / 1_000_000.0
+                                Triple(type, result, elapsed)
+                            }
+                        }.map { it.await() }
                     }
-                    val elapsed = (System.nanoTime() - started) / 1_000_000.0
-                    val point = if (result.error != null || result.status == null) -1.0 else elapsed
-                    samples.add(point)
-                    if (samples.size > 120) samples.removeAt(0)
-                    chart.latencySamples = samples.toList()
-                    val answerText = if (result.answers.isEmpty()) {
-                        if (result.error != null) "خطا: ${result.error}" else "پاسخ بدون رکورد (RCODE=${result.status})"
-                    } else result.answers.joinToString("\\n") { "• ${it.type}: ${it.value} (TTL ${it.ttl})" }
-                    val avg = samples.filter { it >= 0 }.average().takeIf { !it.isNaN() }
-                    tvDnsLookupResult.text = buildString {
+                    val report = buildString {
                         append("دامنه: $domain\\nDNS Server: $server:53\\n")
-                        append("نوع درخواست: ${if (selected == "تمام رکوردها") "ANY (درخواست همه انواع)" else selected}\\n")
-                        append("نمونه: $round | آخرین پاسخ: ${if (point >= 0) String.format(Locale.US, "%.1f ms", point) else "بدون پاسخ"}")
-                        append(" | میانگین: ${avg?.let { String.format(Locale.US, "%.1f ms", it) } ?: "—"}\\n")
-                        append("پاسخ رکوردها:\\n$answerText\\n\\n")
+                        append("دور پایش: $round | درخواست‌ها: ${if (allTypes) "هم‌زمان برای همه انواع رکورد" else selected}\\n\\n")
+                        results.forEach { (type, result, elapsed) ->
+                            val point = if (result.error != null || result.status == null) -1.0 else elapsed
+                            val history = histories.getValue(type)
+                            history.add(point)
+                            if (history.size > 120) history.removeAt(0)
+                            charts.getValue(type).latencySamples = history.toList()
+                            append("━━ $type ━━\\n")
+                            append("زمان پاسخ: ${if (point >= 0) String.format(Locale.US, "%.1f ms", point) else "بدون پاسخ"}\\n")
+                            if (result.answers.isNotEmpty()) {
+                                result.answers.forEach { append("• ${it.value} (TTL ${it.ttl})\\n") }
+                            } else {
+                                append(if (result.error != null) "خطا: ${result.error}\\n" else "پاسخ بدون رکورد (RCODE=${result.status})\\n")
+                            }
+                            append("\\n")
+                        }
                         append("پایش زنده فعال است؛ برای پایان، دکمه توقف را بزنید.")
                     }
+                    tvDnsLookupResult.text = report
                     delay(1000)
                 }
             } catch (_: CancellationException) {
