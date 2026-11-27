@@ -1,12 +1,12 @@
 <resources>
     <style name="Theme.NetQuality" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="colorPrimary">#12314A</item>
-        <item name="colorPrimaryDark">#0B1E30</item>
-        <item name="colorAccent">#087E8B</item>
+        <item name="colorPrimary">#182544</item>
+        <item name="colorPrimaryDark">#101B35</item>
+        <item name="colorAccent">#0E9F9A</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">#0B1E30</item>
         <item name="android:navigationBarColor">#0B1E30</item>
-        <item name="android:windowBackground">#F3F6FB</item>
+        <item name="android:windowBackground">#F4F7FC</item>
     </style>
 </resources>
