@@ -216,7 +216,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabDns).setOnClickListener { showPanel(5) }
         findViewById<Button>(R.id.btnCompareOperators).setOnClickListener { showOperatorComparison() }
         btnDnsLookup.setOnClickListener { runDnsLookup() }
-        findViewById<Button>(R.id.btnShareFilter).setOnClickListener { share("گزارش بررسی دسترسی\\nاپراتور: ${spOperator.selectedItem}\\nزمان: ${SimpleDateFormat(\"yyyy-MM-dd HH:mm\", Locale.US).format(Date())}\\n\\n${tvFilterResult.text}") }
+        findViewById<Button>(R.id.btnShareFilter).setOnClickListener {
+            val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
+            share("گزارش بررسی دسترسی\nاپراتور: ${spOperator.selectedItem}\nزمان: $stamp\n\n${tvFilterResult.text}")
+        }
         btnFilterCheck.setOnClickListener { checkFilterAccess() }
         findViewById<Button>(R.id.tabChart).setOnClickListener { showPanel(3) }
 
