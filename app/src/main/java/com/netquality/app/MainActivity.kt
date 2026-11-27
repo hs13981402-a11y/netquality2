@@ -237,6 +237,10 @@ class MainActivity : AppCompatActivity() {
         btnDnsLookup.setOnClickListener { runDnsLookup() }
         findViewById<Button>(R.id.btnAddDnsServer).setOnClickListener { addDnsServer() }
         refreshDnsServers()
+        spDnsServer.setOnLongClickListener {
+            manageDnsServer()
+            true
+        }
         findViewById<Button>(R.id.btnCompareFilter).setOnClickListener { compareFilterOperators() }
         findViewById<Button>(R.id.btnShareFilter).setOnClickListener {
             val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
@@ -402,7 +406,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshDnsServers() {
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
-        val servers = (prefs.getString("custom_dns_servers", "8.8.8.8\\n1.1.1.1") ?: "")
+        val servers = (prefs.getString("custom_dns_servers", "8.8.8.8\n1.1.1.1") ?: "")
             .lines().map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         val list = if (servers.isEmpty()) listOf("8.8.8.8") else servers
         spDnsServer.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, list)
@@ -415,14 +419,66 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "آدرس IP معتبر نیست", Toast.LENGTH_SHORT).show(); return
         }
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
-        val current = (prefs.getString("custom_dns_servers", "8.8.8.8\\n1.1.1.1") ?: "").lines()
+        val current = (prefs.getString("custom_dns_servers", "8.8.8.8\n1.1.1.1") ?: "").lines()
             .map { it.trim() }.filter { it.isNotEmpty() }
-        if (ip !in current) prefs.edit().putString("custom_dns_servers", (current + ip).joinToString("\\n")).apply()
+        if (ip !in current) prefs.edit().putString("custom_dns_servers", (current + ip).joinToString("\n")).apply()
         refreshDnsServers()
         val items = (0 until spDnsServer.count).map { spDnsServer.getItemAtPosition(it).toString() }
         spDnsServer.setSelection(items.indexOf(ip).coerceAtLeast(0))
         etDnsServer.text.clear()
         Toast.makeText(this, "DNS Server اضافه شد", Toast.LENGTH_SHORT).show()
+    }
+
+
+    private fun manageDnsServer() {
+        val selected = spDnsServer.selectedItem?.toString() ?: return
+        AlertDialog.Builder(this)
+            .setTitle("مدیریت $selected")
+            .setItems(arrayOf("ویرایش آدرس", "حذف سرور")) { _, which ->
+                val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+                val current = (prefs.getString("custom_dns_servers", "8.8.8.8\\n1.1.1.1") ?: "")
+                    .lines().map { it.trim() }.filter { it.isNotEmpty() }
+                if (which == 0) {
+                    val input = EditText(this).apply {
+                        setText(selected)
+                        setSelection(text.length)
+                        hint = "آدرس IP جدید"
+                        setSingleLine(true)
+                        textDirection = View.TEXT_DIRECTION_LTR
+                    }
+                    AlertDialog.Builder(this).setTitle("ویرایش DNS Server").setView(input)
+                        .setNegativeButton("انصراف", null)
+                        .setPositiveButton("ذخیره") { _, _ ->
+                            val updated = input.text.toString().trim()
+                            if (!isValidDnsAddress(updated)) {
+                                Toast.makeText(this, "آدرس IP معتبر نیست", Toast.LENGTH_SHORT).show()
+                            } else {
+                                val revised = current.map { if (it == selected) updated else it }.distinct()
+                                prefs.edit().putString("custom_dns_servers", revised.joinToString("\\n")).apply()
+                                refreshDnsServers()
+                                val index = (0 until spDnsServer.count).indexOfFirst { spDnsServer.getItemAtPosition(it).toString() == updated }
+                                if (index >= 0) spDnsServer.setSelection(index)
+                            }
+                        }.show()
+                } else {
+                    AlertDialog.Builder(this).setTitle("حذف سرور DNS")
+                        .setMessage("سرور $selected از فهرست حذف شود؟")
+                        .setNegativeButton("انصراف", null)
+                        .setPositiveButton("حذف") { _, _ ->
+                            prefs.edit().putString("custom_dns_servers", current.filterNot { it == selected }.joinToString("\\n")).apply()
+                            refreshDnsServers()
+                        }.show()
+                }
+            }.show()
+    }
+
+    private fun isValidDnsAddress(value: String): Boolean {
+        if (value.isBlank() || value.any { it.isWhitespace() }) return false
+        return try {
+            val address = InetAddress.getByName(value)
+            address.hostAddress != null && (value.contains(':') ||
+                (value.matches(Regex("[0-9]{1,3}(\\\\.[0-9]{1,3}){3}")) && value.split('.').all { it.toIntOrNull() in 0..255 }))
+        } catch (_: Exception) { false }
     }
 
     private fun runDnsLookup() {
@@ -446,7 +502,7 @@ class MainActivity : AppCompatActivity() {
                             val started = System.nanoTime()
                             last = DnsLookup.query(server, domain, type)
                             val elapsed = (System.nanoTime() - started) / 1_000_000.0
-                            points.add(if (last?.error == null && last?.status != null) elapsed else -1.0)
+                            points.add(if (last?.error == null && last?.status == 0) elapsed else -1.0)
                             if (n < 9) Thread.sleep(800)
                         }
                         Triple(type, points, last!!)
@@ -1062,7 +1118,7 @@ class MainActivity : AppCompatActivity() {
             rows.add(String.format(Locale.US, "%-3d %-16s %7s %7s %7s",
                 i + 1, ip, f1(s.loss), avg, last))
         }
-        val table = rows.joinToString("\\n")
+        val table = rows.joinToString("\n")
         val sent = stats.lastOrNull()?.sent ?: 0
         tvTable.typeface = Typeface.MONOSPACE
         tvTable.textSize = 9f
