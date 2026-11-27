@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.NetQuality" parent="Theme.AppCompat.Light.DarkActionBar" />
+</resources>

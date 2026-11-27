@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layoutDirection="rtl"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/tabTest"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="تست کامل"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/tabPlot"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="تریس / پلاتر"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/tabChart"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="نمودار"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/tabSettings"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="تنظیمات"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- ───────── پنل تست کامل ───────── -->
+        <ScrollView
+            android:id="@+id/panelTest"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/panel_card"
+                    android:padding="16dp"
+                    android:layout_marginBottom="10dp"
+                    android:text="برای شروع، دکمه‌ی تست را بزنید"
+                    android:textColor="#111111"
+                    android:textSize="16sp" />
+
+                <CheckBox
+                    android:id="@+id/cbAuto"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="تست خودکار هنگام اتصال به شبکه" />
+
+                <Button
+                    android:id="@+id/btnStart"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="شروع تست" />
+
+                <ProgressBar
+                    android:id="@+id/progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:indeterminate="true"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvLog"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:textColor="#222222"
+                    android:textIsSelectable="true"
+                    android:background="@drawable/report_card"
+                    android:padding="14dp"
+                    android:lineSpacingExtra="5dp"
+                    android:textSize="15sp" />
+
+                <Button
+                    android:id="@+id/btnShareTest"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="ارسال گزارش" />
+
+                <Button
+                    android:id="@+id/btnHistory"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="تاریخچه‌ی تست‌ها" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ───────── پنل تریس / پلاتر ───────── -->
+        <ScrollView
+            android:id="@+id/panelPlot"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <EditText
+                    android:id="@+id/etHost"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="هاست یا IP مقصد"
+                    android:inputType="textUri"
+                    android:layoutDirection="ltr"
+                    android:text="8.8.8.8"
+                    android:textDirection="ltr" />
+
+                <RadioGroup
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rbIcmp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="Trace (ICMP)" />
+
+                    <RadioButton
+                        android:id="@+id/rbTcp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="TCP Ping" />
+                </RadioGroup>
+
+                <EditText
+                    android:id="@+id/etPort"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="پورت (فقط برای حالت TCP)"
+                    android:inputType="number"
+                    android:layoutDirection="ltr"
+                    android:text="443" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="فاصله به‌روزرسانی نمودار (ثانیه)"
+                    android:textStyle="bold"
+                    android:textColor="#263238" />
+
+                <EditText
+                    android:id="@+id/etRefreshSeconds"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:singleLine="true"
+                    android:text="1"
+                    android:hint="عدد بین ۱ تا ۶۰ ثانیه" />
+
+                <Button
+                    android:id="@+id/btnPlot"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="شروع" />
+
+                <TextView
+                    android:id="@+id/tvPlotInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="#222222"
+                    android:textSize="13sp" />
+
+                <com.netquality.app.GraphView
+                    android:id="@+id/graph"
+                    android:layout_width="match_parent"
+                    android:layout_height="180dp"
+                    android:layout_marginTop="8dp" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layoutDirection="ltr">
+
+                    <TextView
+                        android:id="@+id/tvTable"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layoutDirection="ltr"
+                        android:textColor="#111111"
+                        android:textDirection="ltr"
+                        android:textIsSelectable="true"
+                        android:textSize="10sp"
+                        android:typeface="monospace" />
+                </HorizontalScrollView>
+
+                <Button
+                    android:id="@+id/btnSharePlot"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="ارسال گزارش" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ───────── پنل مستقل نمودار ───────── -->
+        <ScrollView
+            android:id="@+id/panelChart"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="نمودار زنده کیفیت ارتباط"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    android:textColor="#17324D" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="تأخیر پاسخ در طول زمان؛ علامت قرمز نشان‌دهنده از دست رفتن بسته است."
+                    android:textColor="#607080"
+                    android:textSize="13sp" />
+
+                <com.netquality.app.GraphView
+                    android:id="@+id/graphLarge"
+                    android:layout_width="match_parent"
+                    android:layout_height="280dp"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/report_card"
+                    android:padding="8dp" />
+
+                <com.netquality.app.GraphView
+                    android:id="@+id/graphJitter"
+                    android:layout_width="match_parent"
+                    android:layout_height="210dp"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/report_card"
+                    android:padding="8dp" />
+
+                <com.netquality.app.GraphView
+                    android:id="@+id/graphLoss"
+                    android:layout_width="match_parent"
+                    android:layout_height="210dp"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/report_card"
+                    android:padding="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="هر سه نمودار هم‌زمان به‌روزرسانی می‌شوند. فاصله Refresh را از تب «تریس / پلاتر» تنظیم کنید."
+                    android:textColor="#455A64"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ───────── پنل تنظیمات ───────── -->
+        <ScrollView
+            android:id="@+id/panelSettings"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="هر خط یک مورد. خطی که با # شروع شود نادیده گرفته می‌شود."
+                    android:textColor="#555555" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="اهداف پینگ (هر خط یک مورد؛ host یا host:port برای حالت TCP)"
+                android:textColor="#222222"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/etPing"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textNoSuggestions|textUri"
+                android:layoutDirection="ltr"
+                android:minLines="3"
+                android:textDirection="ltr"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="سرورهای DNS برای تست (هر خط یک IP)"
+                android:textColor="#222222"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/etDnsServers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textNoSuggestions|textUri"
+                android:layoutDirection="ltr"
+                android:minLines="3"
+                android:textDirection="ltr"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="دامنه‌های تست DNS"
+                android:textColor="#222222"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/etDnsDomains"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textNoSuggestions|textUri"
+                android:layoutDirection="ltr"
+                android:minLines="3"
+                android:textDirection="ltr"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="سایت‌های بین‌المللی برای تست دسترسی"
+                android:textColor="#222222"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/etSitesIntl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textNoSuggestions|textUri"
+                android:layoutDirection="ltr"
+                android:minLines="3"
+                android:textDirection="ltr"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="سایت‌های داخلی برای تست دسترسی"
+                android:textColor="#222222"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/etSitesLocal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textNoSuggestions|textUri"
+                android:layoutDirection="ltr"
+                android:minLines="3"
+                android:textDirection="ltr"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="آدرس فایل‌های تست سرعت دانلود"
+                android:textColor="#222222"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/etSpeed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textNoSuggestions|textUri"
+                android:layoutDirection="ltr"
+                android:minLines="3"
+                android:textDirection="ltr"
+                android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btnSave"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="ذخیره" />
+
+                <Button
+                    android:id="@+id/btnReset"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="بازگشت به پیش‌فرض" />
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
+</LinearLayout>
