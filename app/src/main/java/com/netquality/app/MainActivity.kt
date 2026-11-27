@@ -101,6 +101,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvFilterResult: TextView
     private lateinit var filterProgress: ProgressBar
     private lateinit var btnFilterCheck: Button
+    private lateinit var panelDns: View
+    private lateinit var etDnsLookup: EditText
+    private lateinit var spDnsType: Spinner
+    private lateinit var tvDnsLookupResult: TextView
+    private lateinit var btnDnsLookup: Button
+    private lateinit var spOperator: Spinner
 
     private lateinit var tvStatus: TextView
     private lateinit var tvLog: TextView
@@ -167,6 +173,12 @@ class MainActivity : AppCompatActivity() {
         tvFilterResult = findViewById(R.id.tvFilterResult)
         filterProgress = findViewById(R.id.filterProgress)
         btnFilterCheck = findViewById(R.id.btnFilterCheck)
+        panelDns = findViewById(R.id.panelDns)
+        etDnsLookup = findViewById(R.id.etDnsLookup)
+        spDnsType = findViewById(R.id.spDnsType)
+        tvDnsLookupResult = findViewById(R.id.tvDnsLookupResult)
+        btnDnsLookup = findViewById(R.id.btnDnsLookup)
+        spOperator = findViewById(R.id.spOperator)
 
         tvStatus = findViewById(R.id.tvStatus)
         tvLog = findViewById(R.id.tvLog)
@@ -201,6 +213,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabPlot).setOnClickListener { showPanel(1) }
         findViewById<Button>(R.id.tabSettings).setOnClickListener { showPanel(2) }
         findViewById<Button>(R.id.tabFilter).setOnClickListener { showPanel(4) }
+        findViewById<Button>(R.id.tabDns).setOnClickListener { showPanel(5) }
+        findViewById<Button>(R.id.btnCompareOperators).setOnClickListener { showOperatorComparison() }
+        btnDnsLookup.setOnClickListener { runDnsLookup() }
+        findViewById<Button>(R.id.btnShareFilter).setOnClickListener { share("گزارش بررسی دسترسی\\nاپراتور: ${spOperator.selectedItem}\\nزمان: ${SimpleDateFormat(\"yyyy-MM-dd HH:mm\", Locale.US).format(Date())}\\n\\n${tvFilterResult.text}") }
         btnFilterCheck.setOnClickListener { checkFilterAccess() }
         findViewById<Button>(R.id.tabChart).setOnClickListener { showPanel(3) }
 
@@ -241,6 +257,7 @@ class MainActivity : AppCompatActivity() {
         panelSettings.visibility = if (i == 2) View.VISIBLE else View.GONE
         panelChart.visibility = if (i == 3) View.VISIBLE else View.GONE
         panelFilter.visibility = if (i == 4) View.VISIBLE else View.GONE
+        panelDns.visibility = if (i == 5) View.VISIBLE else View.GONE
     }
 
     private fun checkFilterAccess() {
@@ -297,6 +314,52 @@ class MainActivity : AppCompatActivity() {
                 filterProgress.visibility = View.GONE
                 btnFilterCheck.isEnabled = true
             }
+        }
+    }
+
+
+    private fun showOperatorComparison() {
+        val entries = (getSharedPreferences("netq", MODE_PRIVATE).getString("history", "") ?: "")
+            .lines().filter { it.isNotBlank() }
+        val grouped = entries.mapNotNull { line ->
+            val p = line.split(" | ")
+            if (p.size < 7) null else p
+        }.groupBy { it[1] }
+        if (grouped.isEmpty()) {
+            AlertDialog.Builder(this).setTitle("مقایسه اپراتورها")
+                .setMessage("ابتدا روی هر اپراتور جداگانه تست کامل اجرا کنید و نام اپراتور را انتخاب کنید.")
+                .setPositiveButton("متوجه شدم", null).show()
+            return
+        }
+        val report = buildString {
+            append("مقایسه بر اساس گزارش‌های واقعی ذخیره‌شده\n\n")
+            grouped.forEach { (operator, rows) ->
+                append("● $operator (\${rows.size} گزارش)\n")
+                append("آخرین نتیجه: \${rows.first().drop(2).joinToString(" | ")}\n\n")
+            }
+            append("برای مقایسه معتبر، تست‌ها را در زمان نزدیک و با نوع اتصال یکسان انجام دهید.")
+        }
+        AlertDialog.Builder(this).setTitle("مقایسه اپراتورها").setMessage(report)
+            .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
+            .setNegativeButton("بستن", null).show()
+    }
+
+    private fun runDnsLookup() {
+        val domain = etDnsLookup.text.toString().trim().trimEnd('.')
+        if (domain.isBlank() || !domain.contains(".")) {
+            Toast.makeText(this, "دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show()
+            return
+        }
+        btnDnsLookup.isEnabled = false
+        tvDnsLookupResult.text = "در حال دریافت رکوردهای DNS…"
+        lifecycleScope.launch {
+            try {
+                tvDnsLookupResult.text = withContext(Dispatchers.IO) {
+                    DnsLookup.query(domain, spDnsType.selectedItem.toString())
+                }
+            } catch (e: Exception) {
+                tvDnsLookupResult.text = "خطا: \${e.message ?: e.javaClass.simpleName}"
+            } finally { btnDnsLookup.isEnabled = true }
         }
     }
 
@@ -539,7 +602,7 @@ class MainActivity : AppCompatActivity() {
                 tvStatus.text = verdict + if (issues.isEmpty()) "" else "\n\n" + issues.joinToString("\n\n")
                 val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
                 val net = (info?.type ?: "-") + (info?.ssid?.takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: "")
-                saveHistory("$time | $net | ping $pingText | loss $lossText | speed $speedText | ${verdict.take(2)}")
+                saveHistory("$time | ${spOperator.selectedItem} | $net | ping $pingText | loss $lossText | speed $speedText | ${verdict.take(2)}")
                 progress.visibility = View.GONE
                 btnStart.isEnabled = true
                 running = false
