@@ -37,7 +37,8 @@ object DnsLookup {
                     buf.copyOf(reply.length)
                 }
             } catch (e: Exception) { tcpQuery(address, packet) }
-            parse(response, id, type)
+            val completeResponse = if (response.size >= 4 && (response[2].toInt() and 0x02) != 0) tcpQuery(address, packet) else response
+            parse(completeResponse, id, type)
         } catch (e: Exception) {
             DnsResult(type, null, emptyList(), e.message ?: e.javaClass.simpleName)
         }
