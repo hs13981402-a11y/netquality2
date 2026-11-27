@@ -1011,7 +1011,7 @@ class MainActivity : AppCompatActivity() {
                     val first = parts.firstOrNull().orEmpty()
                     val target = first.substringBefore(":").trim().ifBlank { "مقصد نامشخص" }
                     val pingValue = first.substringAfter(":", "").trim()
-                    val method = Regex("\((ICMP|TCP)\)", RegexOption.IGNORE_CASE).find(line)?.groupValues?.get(1)?.uppercase(Locale.ROOT) ?: "روش نامشخص"
+                    val method = Regex("\\((ICMP|TCP)\\)", RegexOption.IGNORE_CASE).find(line)?.groupValues?.get(1)?.uppercase(Locale.ROOT) ?: "روش نامشخص"
                     val dest = target + " (" + method + ")"
                     if (pingValue.isNotBlank()) map[section + "|Ping به " + dest] = section to ("Ping: " + pingValue)
                     parts.drop(1).forEach { part ->
