@@ -1029,22 +1029,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun render(stats: List<HopStat>, header: String) {
         val rows = ArrayList<String>()
-
+        rows.add(String.format(Locale.US, "%-3s %-16s %7s %7s %7s", "Hop", "IP / مقصد", "Loss %", "Avg ms", "Last ms"))
+        rows.add("────────────────────────────────────────────────────")
         stats.forEachIndexed { i, s ->
-            val ip = s.ip ?: "بدون پاسخ"
+            val ip = (s.ip ?: "—").take(16)
             val last = if (s.recv == 0) "—" else f0(s.last)
             val avg = if (s.recv == 0) "—" else f0(s.avg)
-            val mn = if (s.recv == 0) "—" else f0(s.min)
-            val mx = if (s.recv == 0) "—" else f0(s.max)
-            rows.add(String.format(Locale.US, "HOP %02d  |  %s", i + 1, ip))
-            rows.add(String.format(Locale.US, "LOSS %5.1f%%  |  LAST %s ms  |  AVG %s ms", s.loss, last, avg))
-            rows.add(String.format(Locale.US, "MIN %s ms  |  MAX %s ms  |  %s", mn, mx, spark(s.hist)))
-            rows.add("")
+            rows.add(String.format(Locale.US, "%-3d %-16s %7s %7s %7s",
+                i + 1, ip, f1(s.loss), avg, last))
         }
-        val table = rows.joinToString("\n")
+        val table = rows.joinToString("\\n")
         val sent = stats.lastOrNull()?.sent ?: 0
+        tvTable.typeface = Typeface.MONOSPACE
+        tvTable.textSize = 9f
+        tvTable.setLineSpacing(0f, 0.92f)
         tvTable.text = table
-        tvPlotInfo.text = "$header | نمونه: $sent | زمان‌ها میلی‌ثانیه (برای هاپ‌های میانی تقریبی)"
+        tvPlotInfo.text = "$header | نمونه: $sent | Loss هر ردیف در ستون Loss %"
         val selected = stats.last()
         val lastPing = selected.hist.lastOrNull()?.takeIf { it >= 0 }?.let { "آخرین: ${f0(it)} ms  |  میانگین: ${f0(selected.avg)} ms" } ?: "آخرین: بدون پاسخ  |  میانگین: ${f0(selected.avg)} ms"
         val lastJitter = selected.jitterHist.lastOrNull()?.takeIf { it >= 0 }?.let { "آخرین: ${f0(it)} ms" } ?: "آخرین: —"
@@ -1057,7 +1057,7 @@ class MainActivity : AppCompatActivity() {
         graphLarge.data = selected.hist.toList()
         graphJitter.data = selected.jitterHist.toList()
         graphLoss.data = selected.lossHist.toList()
-        lastPlotReport = header + "\n" + table + "\nPing: ${f0(selected.avg)} ms | Jitter لحظه‌ای: ${f0(selected.jitterHist.lastOrNull() ?: 0.0)} ms | Packet Loss: ${f1(selected.loss)}%"
+        lastPlotReport = header + "\\n" + table + "\\nPing: ${f0(selected.avg)} ms | Jitter لحظه‌ای: ${f0(selected.jitterHist.lastOrNull() ?: 0.0)} ms | Packet Loss: ${f1(selected.loss)}%"
     }
 
     private fun spark(h: List<Double>): String {
