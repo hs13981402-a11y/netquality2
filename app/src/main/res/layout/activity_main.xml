@@ -1,4 +1,4 @@
-<?xml vers 
+<?xml vers
                 <CheckBox
                     android:id="@+id/cbUploadTest"
                     android:layout_width="match_parent"
@@ -14,8 +14,7 @@
                     android:layout_height="wrap_content"
                     android:text="در صورت فعال‌سازی، تست آپلود به‌همراه پایش UDP اجرا می‌شود."
                     android:textColor="#607080"
-                    android:textSize="12sp" />
-ion="1.0" encoding="utf-8"?>
+                    android:textSize="12sp" />ion="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
