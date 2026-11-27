@@ -1,20 +1,4 @@
-<?xml vers
-                <CheckBox
-                    android:id="@+id/cbUploadTest"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:checked="false"
-                    android:text="اجرای تست آپلود و پایش UDP حین آپلود در تست کامل"
-                    android:buttonTint="#0E9F9A"
-                    android:textColor="#17324D"
-                    android:textSize="14sp" />
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="در صورت فعال‌سازی، تست آپلود به‌همراه پایش UDP اجرا می‌شود."
-                    android:textColor="#607080"
-                    android:textSize="12sp" />ion="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -1061,6 +1045,22 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="در حالت خاموش، تست کامل بدون دانلود فایل حجیم اجرا می‌شود."
+                    android:textColor="#607080"
+                    android:textSize="12sp" />
+                <CheckBox
+                    android:id="@+id/cbUploadTest"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="false"
+                    android:text="اجرای تست آپلود و پایش UDP حین آپلود در تست کامل"
+                    android:buttonTint="#0E9F9A"
+                    android:textColor="#17324D"
+                    android:textSize="14sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="در صورت فعال‌سازی، تست آپلود به‌همراه پایش UDP اجرا می‌شود."
                     android:textColor="#607080"
                     android:textSize="12sp" />
                 <Button
