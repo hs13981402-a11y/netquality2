@@ -257,6 +257,8 @@ class MainActivity : AppCompatActivity() {
                 this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1
             )
         }
+        cbAuto.isChecked = getSharedPreferences("netq", MODE_PRIVATE).getBoolean("auto_test", false)
+        cbAuto.setOnCheckedChangeListener { _, checked -> getSharedPreferences("netq", MODE_PRIVATE).edit().putBoolean("auto_test", checked).apply() }
         cm.registerDefaultNetworkCallback(netCallback)
     }
 
@@ -977,7 +979,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun render(stats: List<HopStat>, header: String) {
         val rows = ArrayList<String>()
-        rows.add("HOP | IP ADDRESS | PACKET LOSS | LAST ms | AVG ms | MIN ms | MAX ms | HISTORY")
+
         stats.forEachIndexed { i, s ->
             val ip = s.ip ?: "*"
             val last = if (s.recv == 0) "—" else f0(s.last)
