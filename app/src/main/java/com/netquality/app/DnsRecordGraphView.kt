@@ -62,7 +62,7 @@ class DnsRecordGraphView(context: Context) : View(context) {
             fill.lineTo(right,bottom);fill.close()
             p.shader=LinearGradient(0f,top,0f,bottom,c(0x5530B7B0),c(0x0830B7B0),Shader.TileMode.CLAMP)
             canvas.drawPath(fill,p);p.shader=null
-            p.style=Paint.Style.STROKE;p.strokeWidth=2.6*d;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
+            p.style=Paint.Style.STROKE;p.strokeWidth=2.6f*d;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
             p.shader=LinearGradient(left,top,right,bottom,c(0xFF13A89E),c(0xFF3979D5),Shader.TileMode.CLAMP)
             canvas.drawPath(line,p);p.shader=null;p.style=Paint.Style.FILL
             latencySamples.lastOrNull()?.takeIf{it>=0}?.let{
@@ -71,7 +71,7 @@ class DnsRecordGraphView(context: Context) : View(context) {
                 p.color=c(0xFFFFFFFF);canvas.drawCircle(right,y,2*d,p)
             }
         }
-        p.color=c(0xFF8293A5);p.textSize=8.5*d
+        p.color=c(0xFF8293A5);p.textSize=8.5f*d
         canvas.drawText("نمونه‌های اخیر  •  ms",right-100*d,h-7*d,p)
     }
 }
