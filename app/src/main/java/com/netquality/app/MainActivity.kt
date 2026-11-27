@@ -1042,49 +1042,143 @@ class MainActivity : AppCompatActivity() {
             val first = maps.firstNotNullOfOrNull { it[key] }
             Row(first?.first ?: "سایر موارد", key.substringAfterLast("|"), maps.map { it[key]?.second ?: "در این تست ثبت نشده" })
         }
-        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(12, 8, 12, 12) }
-        body.addView(TextView(this).apply {
-            text = "تعداد تست‌ها: " + tests.size + "\nمقایسه Ping/Jitter/Loss با ذکر مقصد و روش انجام می‌شود. مقصدهای متفاوت، ردیف‌های جداگانه دارند."
-            textSize = 12f; setTextColor(0xFF526579.toInt()); setPadding(4, 4, 4, 10)
+        val density = resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+        fun rounded(fill: Int, stroke: Int = 0x00000000, radius: Int = 16): android.graphics.drawable.GradientDrawable =
+            android.graphics.drawable.GradientDrawable().apply {
+                setColor(fill); cornerRadius = dp(radius).toFloat()
+                if (stroke != 0x00000000) setStroke(dp(1), stroke)
+            }
+        val palette = listOf(0xFF087E8B.toInt(), 0xFF5367C5.toInt(), 0xFF16845B.toInt(), 0xFFB56B25.toInt())
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(18))
+            setBackgroundColor(0xFFF4F7FB.toInt())
+        }
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(15), dp(16), dp(15))
+            background = rounded(0xFF123B50.toInt(), radius = 18)
+        }
+        hero.addView(TextView(this).apply {
+            text = "گزارش مقایسه تست‌ها"
+            textSize = 17f; setTextColor(0xFFFFFFFF.toInt())
+            setTypeface(typeface, Typeface.BOLD)
         })
+        hero.addView(TextView(this).apply {
+            text = tests.size.toString() + " تست انتخاب‌شده  •  " + rows.size + " شاخص قابل مقایسه"
+            textSize = 12f; setTextColor(0xFFD4E8EF.toInt())
+            setPadding(0, dp(5), 0, 0)
+        })
+        body.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) })
+
+        val testsHeader = TextView(this).apply {
+            text = "تست‌های انتخاب‌شده"
+            textSize = 13f; setTextColor(0xFF526579.toInt())
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(2), 0, dp(2), dp(7))
+        }
+        body.addView(testsHeader)
+        tests.forEachIndexed { i, item ->
+            val chip = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+                background = rounded(0xFFFFFFFF.toInt(), 0xFFE1E8F0.toInt(), 12)
+            }
+            val dot = TextView(this).apply {
+                text = "●"; textSize = 11f; setTextColor(palette[i % palette.size])
+                setPadding(0, 0, dp(7), 0)
+            }
+            chip.addView(dot)
+            chip.addView(TextView(this).apply {
+                text = names[i]; textSize = 12f; setTextColor(0xFF243B53.toInt())
+                setTypeface(typeface, Typeface.BOLD)
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            chip.addView(TextView(this).apply {
+                text = "#" + (i + 1); textSize = 10f; setTextColor(0xFF718096.toInt())
+            })
+            body.addView(chip, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+        }
+        body.addView(TextView(this).apply {
+            text = "مقادیر هر شاخص به تفکیک تست نمایش داده شده‌اند. مقصدها و روش‌های متفاوت Ping در ردیف‌های جداگانه قرار می‌گیرند."
+            textSize = 11f; setTextColor(0xFF718096.toInt())
+            setPadding(dp(2), dp(5), dp(2), dp(12))
+        })
+
         rows.groupBy { it.section }.forEach { (section, group) ->
-            body.addView(TextView(this).apply {
-                text = section; textSize = 14f; setTextColor(0xFF087E8B.toInt())
-                setTypeface(typeface, Typeface.BOLD); setPadding(4, 12, 4, 6)
+            val sectionBar = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(11), dp(9), dp(11), dp(9))
+                background = rounded(0xFFE4F1F4.toInt(), radius = 10)
+            }
+            sectionBar.addView(TextView(this).apply {
+                text = section; textSize = 13f; setTextColor(0xFF087E8B.toInt())
+                setTypeface(typeface, Typeface.BOLD)
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            sectionBar.addView(TextView(this).apply {
+                text = group.size.toString() + " شاخص"; textSize = 10f
+                setTextColor(0xFF527783.toInt())
+            })
+            body.addView(sectionBar, LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = dp(9); bottomMargin = dp(8)
             })
             group.forEach { row ->
                 val card = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL; setPadding(12, 10, 12, 10)
-                    background = ContextCompat.getDrawable(this@MainActivity, R.drawable.report_card)
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(13), dp(12), dp(13), dp(12))
+                    background = rounded(0xFFFFFFFF.toInt(), 0xFFE5EAF0.toInt(), 14)
+                    elevation = dp(1).toFloat()
                 }
                 card.addView(TextView(this).apply {
                     text = row.label; textSize = 13f; setTextColor(0xFF17324D.toInt())
                     setTypeface(typeface, Typeface.BOLD)
                 })
                 names.forEachIndexed { i, name ->
-                    card.addView(TextView(this).apply {
-                        text = name + ":\n" + row.values[i]; textSize = 11f
-                        setTextColor(if (row.values[i] == "در این تست ثبت نشده") 0xFF9A5B20.toInt() else 0xFF526579.toInt())
-                        setPadding(0, 6, 0, 2)
+                    val missing = row.values[i] == "در این تست ثبت نشده"
+                    val valueRow = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(10), dp(7), dp(10), dp(7))
+                        background = rounded(if (missing) 0xFFFFF7E9.toInt() else 0xFFF3F7FA.toInt(), radius = 9)
+                    }
+                    valueRow.addView(TextView(this).apply {
+                        text = name; textSize = 10f
+                        setTextColor(palette[i % palette.size])
+                        setTypeface(typeface, Typeface.BOLD)
+                    })
+                    valueRow.addView(TextView(this).apply {
+                        text = row.values[i]; textSize = 12f
+                        setTextColor(if (missing) 0xFF9A5B20.toInt() else 0xFF34495E.toInt())
+                        setPadding(0, dp(2), 0, 0)
+                    })
+                    card.addView(valueRow, LinearLayout.LayoutParams(-1, -2).apply {
+                        topMargin = dp(7)
                     })
                 }
-                body.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (7 * resources.displayMetrics.density).toInt() })
+                body.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
+                    bottomMargin = dp(8)
+                })
             }
         }
         val report = buildString {
-            append("مقایسه کامل " + tests.size + " تست\n")
-            names.forEachIndexed { i, name -> append((i + 1).toString() + ". " + name + "\n") }
-            append("\n")
+            append("مقایسه کامل " + tests.size + " تست\\n")
+            names.forEachIndexed { i, name -> append((i + 1).toString() + ". " + name + "\\n") }
+            append("\\n")
             rows.groupBy { it.section }.forEach { (section, group) ->
-                append("【" + section + "】\n")
+                append("【" + section + "】\\n")
                 group.forEach { row ->
-                    append(row.label + "\n")
-                    names.forEachIndexed { i, name -> append("  " + name + ": " + row.values[i] + "\n") }
+                    append(row.label + "\\n")
+                    names.forEachIndexed { i, name -> append("  " + name + ": " + row.values[i] + "\\n") }
                 }
-                append("\n")
+                append("\\n")
             }
         }
-        val scroll = ScrollView(this).apply { addView(body) }
+        val scroll = ScrollView(this).apply {
+            addView(body)
+            isFillViewport = true
+            setBackgroundColor(0xFFF4F7FB.toInt())
+        }
         AlertDialog.Builder(this).setTitle("مقایسه " + tests.size + " تست")
             .setView(scroll)
             .setPositiveButton("اشتراک‌گذاری گزارش کامل") { _, _ -> share(report) }
