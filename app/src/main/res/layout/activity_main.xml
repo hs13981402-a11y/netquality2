@@ -1,4 +1,21 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml vers 
+                <CheckBox
+                    android:id="@+id/cbUploadTest"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="false"
+                    android:text="اجرای تست آپلود و پایش UDP حین آپلود در تست کامل"
+                    android:buttonTint="#0E9F9A"
+                    android:textColor="#17324D"
+                    android:textSize="14sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="در صورت فعال‌سازی، تست آپلود به‌همراه پایش UDP اجرا می‌شود."
+                    android:textColor="#607080"
+                    android:textSize="12sp" />
+ion="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -186,48 +203,12 @@
                     android:elevation="2dp"
                     android:lineSpacingExtra="4dp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="ثبت نتایج و مقایسه اپراتورها"
-                    android:textStyle="bold"
-                    android:textColor="#17324D"
-                    android:layout_marginTop="4dp" />
-                <Spinner
-                    android:id="@+id/spOperator"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:entries="@array/operator_names" />
-                <Button
-                    android:id="@+id/btnCompareOperators"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="مقایسه نتایج اپراتورها" 
-                    android:textColor="#17324D"
-                    android:backgroundTint="#E4ECF4"/>
                 <CheckBox
                     android:id="@+id/cbAuto"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:checked="false"
                     android:text="اجرای خودکار پس از اتصال مجدد (اختیاری)" />
-
-                <CheckBox
-                    android:id="@+id/cbUploadTest"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:checked="false"
-                    android:text="اجرای تست آپلود و Packet Loss حین آپلود (اختیاری)"
-                    android:buttonTint="#0E9F9A"
-                    android:textColor="#17324D"
-                    android:textSize="14sp" />
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="در حالت عادی آپلود انجام نمی‌شود؛ فقط با فعال‌کردن این گزینه اجرا خواهد شد."
-                    android:textColor="#607080"
-                    android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btnStart"
@@ -784,6 +765,40 @@
                     android:textColor="#607080"
                     android:textSize="13sp" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="سرور iperf3 (سرور باید از قبل در حالت Server فعال باشد)"
+                    android:textColor="#17324D"
+                    android:textStyle="bold"
+                    android:textSize="14sp" />
+                <EditText
+                    android:id="@+id/etIperfHost"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="آدرس IP یا دامنه سرور"
+                    android:singleLine="true"
+                    android:inputType="textUri"
+                    android:layoutDirection="ltr"
+                    android:textDirection="ltr"
+                    android:text="speedtest.uninet.az"
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:textColor="#172B43" />
+                <EditText
+                    android:id="@+id/etIperfPort"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="پورت iperf3 (پیش‌فرض 5201)"
+                    android:singleLine="true"
+                    android:inputType="number"
+                    android:layoutDirection="ltr"
+                    android:textDirection="ltr"
+                    android:text="5201"
+                    android:background="@drawable/input_card"
+                    android:padding="12dp"
+                    android:textColor="#172B43" />
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
