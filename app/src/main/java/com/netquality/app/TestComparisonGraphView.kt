@@ -32,7 +32,7 @@ class TestComparisonGraphView(context: Context) : View(context) {
         comparisonMetrics.forEachIndexed { index, metric ->
             val y = top + index*rowH
             if (y+rowH > height) return@forEachIndexed
-            labelPaint.textSize = 10.5*d
+            labelPaint.textSize = 10.5f*d
             canvas.drawText(metric.label.take(26),left,y+10*d,labelPaint)
             val maxValue = max(1.0,max(metric.previous ?: 0.0,metric.latest ?: 0.0))
             val barWidth = max(1f,right-left)
@@ -41,7 +41,7 @@ class TestComparisonGraphView(context: Context) : View(context) {
             canvas.drawRoundRect(RectF(left,newY,right,newY+7*d),4*d,4*d,gridPaint)
             metric.previous?.let { canvas.drawRoundRect(RectF(left,oldY,left+barWidth*(it.coerceAtLeast(0.0)/maxValue).toFloat(),oldY+7*d),4*d,4*d,oldPaint) }
             metric.latest?.let { canvas.drawRoundRect(RectF(left,newY,left+barWidth*(it.coerceAtLeast(0.0)/maxValue).toFloat(),newY+7*d),4*d,4*d,newPaint) }
-            valuePaint.textSize=8.5*d
+            valuePaint.textSize=8.5f*d
             val suffix=if(metric.unit.isBlank()) "" else " ${metric.unit}"
             canvas.drawText("قبلی: "+(metric.previous?.let{String.format(java.util.Locale.US,"%.2f",it)} ?: "—")+suffix,left,y+54*d,valuePaint)
             canvas.drawText("جدید: "+(metric.latest?.let{String.format(java.util.Locale.US,"%.2f",it)} ?: "—")+suffix,left+barWidth*0.52f,y+54*d,valuePaint)
