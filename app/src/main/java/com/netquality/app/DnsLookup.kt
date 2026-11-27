@@ -15,7 +15,8 @@ data class DnsAnswer(val type: String, val value: String, val ttl: Long)
 data class DnsResult(val type: String, val status: Int?, val answers: List<DnsAnswer>, val error: String? = null)
 
 object DnsLookup {
-    private val types = linkedMapOf("A" to 1, "NS" to 2, "CNAME" to 5, "SOA" to 6, "MX" to 15, "TXT" to 16, "AAAA" to 28, "SRV" to 33, "CAA" to 257)
+    private val types = linkedMapOf("A" to 1, "NS" to 2, "CNAME" to 5, "SOA" to 6, "MX" to 15, "TXT" to 16, "AAAA" to 28, "SRV" to 33, "CAA" to 257, "ANY" to 255)
+    private val typeNames = types.entries.associate { it.value to it.key }
     fun supportedTypes(): List<String> = types.keys.toList()
 
     fun query(server: String, domain: String, type: String): DnsResult {
@@ -89,7 +90,7 @@ object DnsLookup {
                 16 -> String(b.copyOfRange(start+1,start+len), Charsets.UTF_8)
                 else -> b.copyOfRange(start,start+len).joinToString("") { "%02x".format(it) }
             }
-            if (rt == types[type] || type == "ANY") answers.add(DnsAnswer(type, value, ttl))
+            if (rt == types[type] || type == "ANY") answers.add(DnsAnswer(if (type == "ANY") (typeNames[rt] ?: "TYPE$rt") else type, value, ttl))
             bb.position(start + len)
         }
         return DnsResult(type, flags and 15, answers)
