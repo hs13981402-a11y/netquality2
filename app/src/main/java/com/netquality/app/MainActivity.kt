@@ -337,8 +337,8 @@ class MainActivity : AppCompatActivity() {
         val report = buildString {
             append("مقایسه بر اساس گزارش‌های واقعی ذخیره‌شده\n\n")
             grouped.forEach { (operator, rows) ->
-                append("● $operator (\${rows.size} گزارش)\n")
-                append("آخرین نتیجه: \${rows.first().drop(2).joinToString(" | ")}\n\n")
+                append("● $operator (${rows.size} گزارش)\n")
+                append("آخرین نتیجه: ${rows.first().drop(2).joinToString(" | ")}\n\n")
             }
             append("برای مقایسه معتبر، تست‌ها را در زمان نزدیک و با نوع اتصال یکسان انجام دهید.")
         }
@@ -361,7 +361,7 @@ class MainActivity : AppCompatActivity() {
                     DnsLookup.query(domain, spDnsType.selectedItem.toString())
                 }
             } catch (e: Exception) {
-                tvDnsLookupResult.text = "خطا: \${e.message ?: e.javaClass.simpleName}"
+                tvDnsLookupResult.text = "خطا: ${e.message ?: e.javaClass.simpleName}"
             } finally { btnDnsLookup.isEnabled = true }
         }
     }
