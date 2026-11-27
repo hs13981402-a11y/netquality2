@@ -1141,9 +1141,15 @@ class MainActivity : AppCompatActivity() {
         tvTable.text = table
         tvPlotInfo.text = "$header | نمونه: $sent | Loss هر ردیف در ستون Loss %"
         val selected = stats.last()
-        val lastPing = selected.hist.lastOrNull()?.takeIf { it >= 0 }?.let { "آخرین: ${f0(it)} ms  |  میانگین: ${f0(selected.avg)} ms" } ?: "آخرین: بدون پاسخ  |  میانگین: ${f0(selected.avg)} ms"
-        val lastJitter = selected.jitterHist.lastOrNull()?.takeIf { it >= 0 }?.let { "آخرین: ${f0(it)} ms" } ?: "آخرین: —"
-        val lastLoss = "مقدار فعلی: ${f1(selected.loss)}%  |  بسته‌های ارسالی: ${selected.sent}"
+        val latestPing = selected.hist.lastOrNull()?.takeIf { it >= 0 }
+        val validJitter = selected.jitterHist.filter { it >= 0 }
+        val avgJitter = if (validJitter.isEmpty()) 0.0 else validJitter.average()
+        val latestJitter = selected.jitterHist.lastOrNull()?.takeIf { it >= 0 }
+        val lastPing = (latestPing?.let { "آخرین ${f1(it)} ms" } ?: "آخرین بدون پاسخ") +
+            "  |  میانگین ${f1(selected.avg)} ms  |  بیشینه ${f1(selected.max)} ms"
+        val lastJitter = (latestJitter?.let { "آخرین ${f1(it)} ms" } ?: "آخرین —") +
+            "  |  میانگین ${f1(avgJitter)} ms  |  نمونه ${validJitter.size}"
+        val lastLoss = "از دست‌رفته ${f1(selected.loss)}%  |  دریافت ${selected.recv} از ${selected.sent}"
         graph.summaryText = lastPing
         graphLarge.summaryText = lastPing
         graphJitter.summaryText = lastJitter
