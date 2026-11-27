@@ -26,6 +26,8 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -205,6 +207,8 @@ class MainActivity : AppCompatActivity() {
         graphLarge = findViewById(R.id.graphLarge)
         graphJitter = findViewById(R.id.graphJitter)
         graphLoss = findViewById(R.id.graphLoss)
+        graph.chartTitle = "Ping زنده"
+        graph.chartUnit = "ms"
         graphLarge.chartTitle = "Ping"
         graphLarge.chartUnit = "ms"
         graphJitter.chartTitle = "Jitter"
@@ -234,6 +238,7 @@ class MainActivity : AppCompatActivity() {
 
         btnStart.setOnClickListener { runTest() }
         btnHistory.setOnClickListener { showHistory() }
+        findViewById<Button>(R.id.btnCompareTests).setOnClickListener { compareLastTwoTests() }
         findViewById<Button>(R.id.btnShareTest).setOnClickListener {
             share(tvStatus.text.toString() + "\n\n" + tvLog.text.toString())
         }
@@ -666,6 +671,7 @@ class MainActivity : AppCompatActivity() {
                 val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
                 val net = (info?.type ?: "-") + (info?.ssid?.takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: "")
                 saveHistory("$time | ${spOperator.selectedItem} | $net | ping $pingText | loss $lossText | speed $speedText | ${verdict.take(2)}")
+                saveFullSnapshot(time, spOperator.selectedItem.toString(), net, pingText, lossText, speedText, verdict, log.toString())
                 progress.visibility = View.GONE
                 btnStart.isEnabled = true
                 running = false
@@ -756,6 +762,67 @@ class MainActivity : AppCompatActivity() {
         val old = sp.getString("history", "") ?: ""
         val lines = (listOf(line) + old.split("\n").filter { it.isNotBlank() }).take(40)
         sp.edit().putString("history", lines.joinToString("\n")).apply()
+    }
+
+    private fun saveFullSnapshot(time: String, operator: String, network: String,
+                                 ping: String, loss: String, speed: String,
+                                 verdict: String, report: String) {
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val old = try { JSONArray(prefs.getString("full_history", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        val item = JSONObject().apply {
+            put("time", time); put("operator", operator); put("network", network)
+            put("ping", ping); put("loss", loss); put("speed", speed)
+            put("verdict", verdict); put("report", report)
+        }
+        val next = JSONArray().put(item)
+        for (i in 0 until minOf(old.length(), 9)) next.put(old.getJSONObject(i))
+        prefs.edit().putString("full_history", next.toString()).apply()
+    }
+
+    private fun compareLastTwoTests() {
+        val arr = try {
+            JSONArray(getSharedPreferences("netq", MODE_PRIVATE).getString("full_history", "[]") ?: "[]")
+        } catch (_: Exception) { JSONArray() }
+        if (arr.length() < 2) {
+            AlertDialog.Builder(this).setTitle("مقایسه دو تست")
+                .setMessage("برای مقایسه، ابتدا تست کامل را روی اینترنت اول اجرا کنید؛ سپس اینترنت را دستی تغییر دهید و تست دوم را اجرا کنید.")
+                .setPositiveButton("متوجه شدم", null).show()
+            return
+        }
+        val newer = arr.getJSONObject(0)
+        val older = arr.getJSONObject(1)
+        fun numeric(value: String): Double? = Regex("-?\\d+(?:\\.\\d+)?").find(value)?.value?.toDoubleOrNull()
+        fun delta(label: String, key: String, unit: String, lowerBetter: Boolean): String {
+            val a = numeric(older.optString(key))
+            val b = numeric(newer.optString(key))
+            if (a == null || b == null) return "$label: داده کافی برای محاسبه اختلاف وجود ندارد"
+            val diff = b - a
+            val direction = when {
+                kotlin.math.abs(diff) < 0.0001 -> "بدون تغییر"
+                (diff < 0 && lowerBetter) || (diff > 0 && !lowerBetter) -> "بهبود"
+                else -> "افت"
+            }
+            return "$label: ${"%.1f".format(Locale.US, a)} → ${"%.1f".format(Locale.US, b)} $unit  |  اختلاف: ${if (diff > 0) "+" else ""}${"%.1f".format(Locale.US, diff)} $unit ($direction)"
+        }
+        val report = buildString {
+            append("مقایسه دو تست کامل اینترنت\n")
+            append("تست اول: ${older.optString("operator")} | ${older.optString("time")} | ${older.optString("network")}\n")
+            append("تست دوم: ${newer.optString("operator")} | ${newer.optString("time")} | ${newer.optString("network")}\n\n")
+            append("خلاصه شاخص‌های عددی\n")
+            append(delta("میانگین Ping", "ping", "ms", true)).append("\n")
+            append(delta("Packet Loss", "loss", "%", true)).append("\n")
+            append(delta("سرعت دانلود", "speed", "Mbps", false)).append("\n\n")
+            append("نتیجه تست اول: ${older.optString("verdict")}\n")
+            append("نتیجه تست دوم: ${newer.optString("verdict")}\n\n")
+            append("گزارش کامل تست اول\n${older.optString("report")}\n\n")
+            append("════════════════════════════════\n")
+            append("گزارش کامل تست دوم\n${newer.optString("report")}\n\n")
+            append("توجه: تست‌ها باید با مقصدها و تنظیمات یکسان و در فاصله زمانی نزدیک اجرا شوند. اعداد مربوط به دو اجرای آخر هستند.")
+        }
+        AlertDialog.Builder(this).setTitle("مقایسه کامل دو تست")
+            .setMessage(report)
+            .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
+            .setNegativeButton("بستن", null).show()
     }
 
     private fun showHistory() {
@@ -909,19 +976,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun render(stats: List<HopStat>, header: String) {
-        val sb = StringBuilder()
-        sb.append(String.format(Locale.US, "%-3s %-18s %5s %5s %5s %5s %5s  %s\n",
-            "#", "IP", "Loss", "Last", "Avg", "Min", "Max", "Graph"))
+        val rows = ArrayList<String>()
+        rows.add("HOP | IP ADDRESS | PACKET LOSS | LAST ms | AVG ms | MIN ms | MAX ms | HISTORY")
         stats.forEachIndexed { i, s ->
-            val ip = (s.ip ?: "*").take(18)
-            val last = if (s.recv == 0) "-" else f0(s.last)
-            val avg = if (s.recv == 0) "-" else f0(s.avg)
-            val mn = if (s.recv == 0) "-" else f0(s.min)
-            val mx = if (s.recv == 0) "-" else f0(s.max)
-            sb.append(String.format(Locale.US, "%-3d %-18s %4.0f%% %5s %5s %5s %5s  %s\n",
+            val ip = s.ip ?: "*"
+            val last = if (s.recv == 0) "—" else f0(s.last)
+            val avg = if (s.recv == 0) "—" else f0(s.avg)
+            val mn = if (s.recv == 0) "—" else f0(s.min)
+            val mx = if (s.recv == 0) "—" else f0(s.max)
+            rows.add(String.format(Locale.US,
+                "%02d | %-39s | %5.1f%% | %6s | %6s | %6s | %6s | %s",
                 i + 1, ip, s.loss, last, avg, mn, mx, spark(s.hist)))
         }
-        val table = sb.toString()
+        val table = rows.joinToString("\n")
         val sent = stats.lastOrNull()?.sent ?: 0
         tvTable.text = table
         tvPlotInfo.text = "$header | نمونه: $sent | زمان‌ها میلی‌ثانیه (برای هاپ‌های میانی تقریبی)"
