@@ -351,27 +351,51 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun showOperatorComparison() {
-        val entries = (getSharedPreferences("netq", MODE_PRIVATE).getString("history", "") ?: "")
-            .lines().filter { it.isNotBlank() }
-        val grouped = entries.mapNotNull { line ->
-            val p = line.split(" | ")
-            if (p.size < 7) null else p
-        }.groupBy { it[1] }
-        if (grouped.isEmpty()) {
+        val arr = try { JSONArray(getSharedPreferences("netq", MODE_PRIVATE).getString("full_history", "[]") ?: "[]") }
+            catch (_: Exception) { JSONArray() }
+        val latest = LinkedHashMap<String, JSONObject>()
+        for (i in 0 until arr.length()) {
+            val item = arr.optJSONObject(i) ?: continue
+            val op = item.optString("operator").ifBlank { "نامشخص" }
+            if (!latest.containsKey(op)) latest[op] = item
+        }
+        if (latest.size < 2) {
             AlertDialog.Builder(this).setTitle("مقایسه اپراتورها")
-                .setMessage("ابتدا روی هر اپراتور جداگانه تست کامل اجرا کنید و نام اپراتور را انتخاب کنید.")
+                .setMessage("برای مقایسه واقعی، تست کامل را جداگانه روی حداقل دو اپراتور اجرا کنید. نتایج هر اپراتور بر اساس آخرین تست ذخیره‌شده مقایسه می‌شود.")
                 .setPositiveButton("متوجه شدم", null).show()
             return
         }
+        fun value(o: JSONObject, key: String): Double? =
+            Regex("-?\\\\d+(?:\\\\.\\\\d+)?").find(o.optString(key))?.value?.toDoubleOrNull()
+        val metrics = listOf(
+            Triple("Ping", "ping", true), Triple("Packet Loss", "loss", true),
+            Triple("سرعت دانلود", "speed", false)
+        )
         val report = buildString {
-            append("مقایسه بر اساس گزارش‌های واقعی ذخیره‌شده\n\n")
-            grouped.forEach { (operator, rows) ->
-                append("● $operator (${rows.size} گزارش)\n")
-                append("آخرین نتیجه: ${rows.first().drop(2).joinToString(" | ")}\n\n")
+            append("مقایسه آخرین تست ذخیره‌شده هر اپراتور\\n")
+            append("تعداد اپراتورهای مقایسه‌شده: ${latest.size}\\n")
+            latest.forEach { (op, item) ->
+                append("\\n━━━━━━━━ $op ━━━━━━━━\\n")
+                append("زمان: ${item.optString("time")} | شبکه: ${item.optString("network")}\\n")
+                append("Ping: ${item.optString("ping")} | Loss: ${item.optString("loss")} | Speed: ${item.optString("speed")}\\n")
+                append("ارزیابی: ${item.optString("verdict")}\\n")
+                val lines = item.optString("report").lines().filter { it.contains("❌") || it.contains("⚠️") }
+                append("موارد قابل توجه: ${if (lines.isEmpty()) "مورد هشدار ثبت نشده" else lines.take(8).joinToString("؛ ")}\\n")
             }
-            append("برای مقایسه معتبر، تست‌ها را در زمان نزدیک و با نوع اتصال یکسان انجام دهید.")
+            append("\\n━━━━━━━━ جمع‌بندی شاخص‌ها ━━━━━━━━\\n")
+            metrics.forEach { (label,key,lowerBetter) ->
+                val valid = latest.mapNotNull { (op,item) -> value(item,key)?.let { op to it } }
+                if (valid.isEmpty()) append("$label: داده عددی کافی وجود ندارد\\n")
+                else {
+                    val best = if (lowerBetter) valid.minBy { it.second } else valid.maxBy { it.second }
+                    append("بهترین $label: ${best.first} (${String.format(Locale.US,"%.2f",best.second)})\\n")
+                    valid.forEach { (op,v) -> append("  • $op: ${String.format(Locale.US,"%.2f",v)}\\n") }
+                }
+            }
+            append("\\nپیشنهاد: اپراتوری برتر است که هم‌زمان تأخیر و Packet Loss کمتر، سرعت بالاتر و هشدارهای عملیاتی کمتری داشته باشد. اگر شاخص‌ها بین اپراتورها تقسیم شده باشند، نتیجه نهایی «ترکیبی» است و باید بر اساس نوع استفاده انتخاب شود.")
+            append("\\n\\nنکته: مقایسه فقط بر اساس داده‌های واقعاً ثبت‌شده انجام شده؛ تست‌ها بهتر است با مقصدها و تنظیمات یکسان و در بازه زمانی نزدیک اجرا شوند.")
         }
-        AlertDialog.Builder(this).setTitle("مقایسه اپراتورها").setMessage(report)
+        AlertDialog.Builder(this).setTitle("تحلیل و مقایسه اپراتورها").setMessage(report)
             .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
             .setNegativeButton("بستن", null).show()
     }
