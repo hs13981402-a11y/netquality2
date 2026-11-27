@@ -28,6 +28,8 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.widget.Toast
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.appcompat.app.AlertDialog
 import org.json.JSONArray
 import org.json.JSONObject
@@ -114,6 +116,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var filterProgress: ProgressBar
     private lateinit var btnFilterCheck: Button
     private lateinit var panelDns: View
+    private lateinit var panelPacketLoss: View
+    private lateinit var webPacketLoss: WebView
+    private lateinit var tvUdpLossResult: TextView
+    private lateinit var tvUploadLossResult: TextView
     private lateinit var etDnsLookup: EditText
     private lateinit var spDnsType: Spinner
     private lateinit var tvDnsLookupResult: TextView
@@ -195,6 +201,10 @@ class MainActivity : AppCompatActivity() {
         filterProgress = findViewById(R.id.filterProgress)
         btnFilterCheck = findViewById(R.id.btnFilterCheck)
         panelDns = findViewById(R.id.panelDns)
+        panelPacketLoss = findViewById(R.id.panelPacketLoss)
+        webPacketLoss = findViewById(R.id.webPacketLoss)
+        tvUdpLossResult = findViewById(R.id.tvUdpLossResult)
+        tvUploadLossResult = findViewById(R.id.tvUploadLossResult)
         etDnsLookup = findViewById(R.id.etDnsLookup)
         spDnsType = findViewById(R.id.spDnsType)
         tvDnsLookupResult = findViewById(R.id.tvDnsLookupResult)
@@ -242,6 +252,15 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabSettings).setOnClickListener { showPanel(2) }
         findViewById<Button>(R.id.tabFilter).setOnClickListener { showPanel(4) }
         findViewById<Button>(R.id.tabDns).setOnClickListener { showPanel(5) }
+        findViewById<Button>(R.id.tabPacketLoss).setOnClickListener { showPanel(6) }
+        findViewById<Button>(R.id.btnUdpLoss).setOnClickListener { runStandaloneUdpLoss() }
+        findViewById<Button>(R.id.btnUploadLoss).setOnClickListener { runUploadUdpLoss() }
+        findViewById<Button>(R.id.btnReloadPacketLossWeb).setOnClickListener { webPacketLoss.loadUrl("https://fa.packetlosstest.com/") }
+        webPacketLoss.settings.javaScriptEnabled = true
+        webPacketLoss.settings.domStorageEnabled = true
+        webPacketLoss.settings.loadsImagesAutomatically = true
+        webPacketLoss.webViewClient = WebViewClient()
+        webPacketLoss.loadUrl("https://fa.packetlosstest.com/")
         findViewById<Button>(R.id.btnCompareOperators).setOnClickListener { showOperatorComparison() }
         btnDnsLookup.setOnClickListener { runDnsLookup() }
         findViewById<Button>(R.id.btnAddDnsServer).setOnClickListener { addDnsServer() }
@@ -299,13 +318,61 @@ class MainActivity : AppCompatActivity() {
         panelChart.visibility = if (i == 3) View.VISIBLE else View.GONE
         panelFilter.visibility = if (i == 4) View.VISIBLE else View.GONE
         panelDns.visibility = if (i == 5) View.VISIBLE else View.GONE
+        panelPacketLoss.visibility = if (i == 6) View.VISIBLE else View.GONE
 
-        val tabIds = intArrayOf(R.id.tabTest, R.id.tabPlot, R.id.tabSettings, R.id.tabChart, R.id.tabFilter, R.id.tabDns)
+        val tabIds = intArrayOf(R.id.tabTest, R.id.tabPlot, R.id.tabSettings, R.id.tabChart, R.id.tabFilter, R.id.tabDns, R.id.tabPacketLoss)
         tabIds.forEachIndexed { index, id ->
             val tab = findViewById<Button>(id)
             val selected = index == i
             tab.backgroundTintList = ColorStateList.valueOf(Color.parseColor(if (selected) "#0E9F9A" else "#263858"))
             tab.setTextColor(Color.parseColor(if (selected) "#FFFFFF" else "#DCE8F4"))
+        }
+    }
+
+    private fun runStandaloneUdpLoss() {
+        val button = findViewById<Button>(R.id.btnUdpLoss)
+        button.isEnabled = false
+        tvUdpLossResult.text = "در حال ارسال ۳۰ پروب UDP به 1.1.1.1 ..."
+        lifecycleScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    Net.udpLossTest("1.1.1.1", "one.one.one.one", 30)
+                }
+                tvUdpLossResult.text = "UDP/53  •  سرور: 1.1.1.1\nارسال‌شده: ${result.sent}\nپاسخ‌داده‌شده: ${result.received}\nPacket Loss: ${"%.1f".format(Locale.US, result.loss)}%"
+            } catch (e: Exception) {
+                tvUdpLossResult.text = "اجرای آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}"
+            } finally {
+                button.isEnabled = true
+            }
+        }
+    }
+
+    private fun runUploadUdpLoss() {
+        val button = findViewById<Button>(R.id.btnUploadLoss)
+        button.isEnabled = false
+        tvUploadLossResult.text = "در حال اجرای آپلود آزمایشی و پروب‌های UDP به‌صورت هم‌زمان ..."
+        lifecycleScope.launch {
+            try {
+                val (uploadMbps, udp) = coroutineScope {
+                    val upload = async(Dispatchers.IO) { Net.uploadTest() }
+                    val probes = async(Dispatchers.IO) {
+                        Net.udpLossTest("1.1.1.1", "one.one.one.one", 30)
+                    }
+                    Pair(upload.await(), probes.await())
+                }
+                tvUploadLossResult.text = buildString {
+                    append("سرعت آپلود: ")
+                    append(uploadMbps?.let { "${"%.2f".format(Locale.US, it)} Mbps" } ?: "ناموفق")
+                    append("\nپروب UDP ارسال‌شده: ${udp.sent}")
+                    append("\nپاسخ‌داده‌شده: ${udp.received}")
+                    append("\nUDP probe loss زیر بار آپلود: ${"%.1f".format(Locale.US, udp.loss)}%")
+                    append("\n\nتوجه: این عدد افت پاسخ پروب UDP در بازه آزمون است و Packet Loss مستقیم جریان آپلود محسوب نمی‌شود.")
+                }
+            } catch (e: Exception) {
+                tvUploadLossResult.text = "اجرای آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}"
+            } finally {
+                button.isEnabled = true
+            }
         }
     }
 
