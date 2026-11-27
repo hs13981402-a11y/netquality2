@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">کیفیت اینترنت</string>
+    <string name="app_name">Monitoring</string>
     <string-array name="filter_sites">
         <item>Facebook — facebook.com</item>
         <item>Instagram — instagram.com</item>
