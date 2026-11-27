@@ -169,7 +169,8 @@
                     android:text="برای شروع، دکمه‌ی تست را بزنید"
                     android:textColor="#111111"
                     android:textSize="17sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold" 
+                    android:elevation="2dp"/>
 
                 <TextView
                     android:layout_width="match_parent"
@@ -187,7 +188,9 @@
                     android:id="@+id/btnCompareOperators"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="مقایسه نتایج اپراتورها" />
+                    android:text="مقایسه نتایج اپراتورها" 
+                    android:textColor="#17324D"
+                    android:backgroundTint="#E4ECF4"/>
                 <CheckBox
                     android:id="@+id/cbAuto"
                     android:layout_width="wrap_content"
@@ -199,7 +202,11 @@
                     android:id="@+id/btnStart"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="شروع تست" />
+                    android:text="شروع تست" 
+                    android:minHeight="54dp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#0E9F9A"/>
 
                 <ProgressBar
                     android:id="@+id/progress"
@@ -221,7 +228,8 @@
                     android:lineSpacingExtra="10dp"
                     android:lineSpacingMultiplier="1.16"
                     android:textSize="14sp"
-                    android:fontFamily="sans"/>
+                    android:fontFamily="sans"
+                    android:elevation="1dp"/>
 
                 <Button
                     android:id="@+id/btnCompareTests"
@@ -237,14 +245,18 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="ارسال گزارش" />
+                    android:text="ارسال گزارش" 
+                    android:textColor="#17324D"
+                    android:backgroundTint="#E4ECF4"/>
 
                 <Button
                     android:id="@+id/btnHistory"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="گزارش‌های ذخیره‌شده" />
+                    android:text="گزارش‌های ذخیره‌شده" 
+                    android:textColor="#17324D"
+                    android:backgroundTint="#E4ECF4"/>
             </LinearLayout>
         </ScrollView>
 
