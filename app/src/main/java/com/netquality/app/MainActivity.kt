@@ -934,6 +934,7 @@ class MainActivity : AppCompatActivity() {
             put("time", time); put("operator", operator); put("network", network)
             put("ping", ping); put("loss", loss); put("speed", speed)
             put("verdict", verdict); put("report", report)
+            put("name", operator + " - " + network + " - " + time)
         }
         val next = JSONArray().put(item)
         for (i in 0 until minOf(old.length(), 9)) next.put(old.getJSONObject(i))
@@ -941,123 +942,150 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun compareLastTwoTests() {
-        val arr = try { JSONArray(getSharedPreferences("netq", MODE_PRIVATE).getString("full_history", "[]") ?: "[]") }
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val arr = try { JSONArray(prefs.getString("full_history", "[]") ?: "[]") }
             catch (_: Exception) { JSONArray() }
         if (arr.length() < 2) {
-            AlertDialog.Builder(this).setTitle("مقایسه دو تست")
-                .setMessage("برای مقایسه، ابتدا دو تست کامل اجرا کنید.")
+            AlertDialog.Builder(this).setTitle("مقایسه تست‌ها")
+                .setMessage("برای مقایسه، ابتدا حداقل دو تست کامل اجرا کنید.")
                 .setPositiveButton("متوجه شدم", null).show()
             return
         }
-        val newer = arr.getJSONObject(0)
-        val older = arr.getJSONObject(1)
-        data class Entry(val section: String, val label: String, val value: String, val number: Double?, val unit: String)
+        fun title(item: JSONObject): String = item.optString("name").ifBlank {
+            listOf(item.optString("operator"), item.optString("network"), item.optString("time"))
+                .filter { it.isNotBlank() }.joinToString(" - ")
+        }
+        val labels = Array(arr.length()) { i -> title(arr.getJSONObject(i)) + " | " + arr.getJSONObject(i).optString("time") }
+        val checked = BooleanArray(arr.length())
+        val dialog = AlertDialog.Builder(this).setTitle("انتخاب تست‌ها برای مقایسه")
+            .setMultiChoiceItems(labels, checked) { _, which, value -> checked[which] = value }
+            .setPositiveButton("مقایسه", null)
+            .setNeutralButton("نام‌گذاری تست") { _, _ ->
+                val chosen = checked.indices.filter { checked[it] }
+                if (chosen.size == 1) renameSavedTest(arr, chosen[0])
+                else Toast.makeText(this, "برای نام‌گذاری فقط یک تست را انتخاب کنید.", Toast.LENGTH_LONG).show()
+            }
+            .setNegativeButton("بستن", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val chosen = checked.indices.filter { checked[it] }
+                if (chosen.size < 2) Toast.makeText(this, "حداقل دو تست را انتخاب کنید.", Toast.LENGTH_SHORT).show()
+                else { dialog.dismiss(); showSelectedTestsComparison(arr, chosen) }
+            }
+        }
+        dialog.show()
+    }
 
-        fun extract(item: JSONObject): LinkedHashMap<String, Entry> {
-            val result = LinkedHashMap<String, Entry>()
+    private fun renameSavedTest(arr: JSONArray, index: Int) {
+        val item = arr.optJSONObject(index) ?: return
+        val field = EditText(this).apply {
+            setSingleLine(true)
+            hint = "مثلاً BRAS Feiz"
+            setText(item.optString("name"))
+            setSelection(text.length)
+        }
+        AlertDialog.Builder(this).setTitle("نام‌گذاری تست")
+            .setMessage("نام دلخواه تست را وارد کنید.")
+            .setView(field)
+            .setPositiveButton("ذخیره") { _, _ ->
+                val name = field.text.toString().trim()
+                if (name.isNotBlank()) {
+                    item.put("name", name)
+                    getSharedPreferences("netq", MODE_PRIVATE).edit().putString("full_history", arr.toString()).apply()
+                    Toast.makeText(this, "نام تست ذخیره شد.", Toast.LENGTH_SHORT).show()
+                }
+            }.setNegativeButton("انصراف", null).show()
+    }
+
+    private fun showSelectedTestsComparison(arr: JSONArray, indices: List<Int>) {
+        data class Row(val section: String, val label: String, val values: List<String>)
+        fun extract(item: JSONObject): LinkedHashMap<String, Pair<String, String>> {
+            val map = LinkedHashMap<String, Pair<String, String>>()
             var section = "اطلاعات عمومی"
             item.optString("report").lines().forEach { raw ->
                 val line = raw.trim()
-                if (line.isBlank() || line.startsWith("━━") || line.startsWith("━━━━━━━━")) return@forEach
+                if (line.isBlank() || line.startsWith("━━")) return@forEach
                 if (line.startsWith("◆")) { section = line.removePrefix("◆").trim(); return@forEach }
-                line.split("|").map { it.trim() }.filter { it.isNotBlank() }.forEach { part ->
-                    val colon = part.indexOf(':')
-                    val label = if (colon > 0) part.substring(0, colon).trim()
-                                else part.takeWhile { !it.isDigit() }.trim().ifBlank { "شاخص" }
-                    val number = Regex("-?\\d+(?:[.,]\\d+)?").find(part)?.value?.replace(',', '.')?.toDoubleOrNull()
-                    val unit = when {
-                        part.contains("Mbps", true) -> "Mbps"
-                        part.contains("ms", true) -> "ms"
-                        part.contains("dBm", true) -> "dBm"
-                        part.contains("MHz", true) -> "MHz"
-                        part.contains("%") || part.contains("٪") -> "%"
-                        else -> ""
+                if (line.contains("jitter", true) && line.contains("loss", true) && line.contains("|")) {
+                    val parts = line.split("|").map { it.trim() }
+                    val first = parts.firstOrNull().orEmpty()
+                    val target = first.substringBefore(":").trim().ifBlank { "مقصد نامشخص" }
+                    val pingValue = first.substringAfter(":", "").trim()
+                    val method = Regex("\((ICMP|TCP)\)", RegexOption.IGNORE_CASE).find(line)?.groupValues?.get(1)?.uppercase(Locale.ROOT) ?: "روش نامشخص"
+                    val dest = target + " (" + method + ")"
+                    if (pingValue.isNotBlank()) map[section + "|Ping به " + dest] = section to ("Ping: " + pingValue)
+                    parts.drop(1).forEach { part ->
+                        if (part.contains("jitter", true)) map[section + "|Jitter به " + dest] = section to part
+                        if (part.contains("loss", true)) map[section + "|Packet Loss به " + dest] = section to part
                     }
-                    val base = section + "|" + label
-                    val key = if (result.containsKey(base)) base + "|" + result.size else base
-                    result[key] = Entry(section, label, part, number, unit)
+                    return@forEach
+                }
+                line.split("|").map { it.trim() }.filter { it.isNotBlank() }.forEachIndexed { n, part ->
+                    val label = when {
+                        part.contains("→") -> part.substringBefore("→").trim() + " (DNS)"
+                        part.contains(":") -> part.substringBefore(":").trim()
+                        else -> part.take(48)
+                    }.ifBlank { "جزئیات " + (n + 1) }
+                    val key = section + "|" + label
+                    val unique = if (map.containsKey(key)) key + "|" + map.size else key
+                    map[unique] = section to part
                 }
             }
-            return result
+            return map
         }
-
-        val oldMap = extract(older)
-        val newMap = extract(newer)
-        val keys = (oldMap.keys + newMap.keys).distinct()
+        val tests = indices.map { arr.getJSONObject(it) }
+        val maps = tests.map { extract(it) }
+        val keys = LinkedHashSet<String>()
+        maps.forEach { keys.addAll(it.keys) }
+        val names = tests.map { it.optString("name").ifBlank { it.optString("operator") + " - " + it.optString("time") } }
         val rows = keys.map { key ->
-            val a = oldMap[key]; val b = newMap[key]
-            val e = b ?: a!!
-            Triple(e, a, b)
+            val first = maps.firstNotNullOfOrNull { it[key] }
+            Row(first?.first ?: "سایر موارد", key.substringAfterLast("|"), maps.map { it[key]?.second ?: "در این تست ثبت نشده" })
         }
-        val metrics = rows.filter { it.second?.number != null || it.third?.number != null }.map {
-            ComparisonMetric(it.first.label, it.second?.number, it.third?.number,
-                it.third?.unit?.takeIf { u -> u.isNotBlank() } ?: it.second?.unit.orEmpty())
-        }
-
-        val timeOld = older.optString("time").ifBlank { "زمان ثبت نشده" }
-        val timeNew = newer.optString("time").ifBlank { "زمان ثبت نشده" }
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(14, 10, 14, 12) }
-        content.addView(TextView(this).apply {
-            text = "تست قبلی: " + timeOld + "\nتست جدید: " + timeNew +
-                "\n\nهمه موارد ثبت‌شده در گزارش، شامل موارد عددی و وضعیت‌های متنی، در ادامه مقایسه شده‌اند."
-            textSize = 12f; setTextColor(0xFF526579.toInt()); setPadding(4, 4, 4, 12)
+        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(12, 8, 12, 12) }
+        body.addView(TextView(this).apply {
+            text = "تعداد تست‌ها: " + tests.size + "\nمقایسه Ping/Jitter/Loss با ذکر مقصد و روش انجام می‌شود. مقصدهای متفاوت، ردیف‌های جداگانه دارند."
+            textSize = 12f; setTextColor(0xFF526579.toInt()); setPadding(4, 4, 4, 10)
         })
-        content.addView(TextView(this).apply {
-            text = "مقایسه نموداری تمام شاخص‌های عددی"; textSize = 15f
-            setTextColor(0xFF17324D.toInt()); setTypeface(typeface, Typeface.BOLD); setPadding(4, 8, 4, 8)
-        })
-        if (metrics.isNotEmpty()) {
-            val chart = TestComparisonGraphView(this).apply { comparisonMetrics = metrics }
-            val height = ((metrics.size * 62 + 56) * resources.displayMetrics.density).toInt()
-            content.addView(chart, LinearLayout.LayoutParams(-1, height))
-        } else content.addView(TextView(this).apply { text = "شاخص عددی برای رسم نمودار وجود ندارد." })
-
-        content.addView(TextView(this).apply {
-            text = "جزئیات کامل مقایسه"; textSize = 15f
-            setTextColor(0xFF17324D.toInt()); setTypeface(typeface, Typeface.BOLD); setPadding(4, 18, 4, 8)
-        })
-        rows.groupBy { it.first.section }.forEach { (section, sectionRows) ->
-            content.addView(TextView(this).apply {
-                text = section; textSize = 13f; setTextColor(0xFF087E8B.toInt())
+        rows.groupBy { it.section }.forEach { (section, group) ->
+            body.addView(TextView(this).apply {
+                text = section; textSize = 14f; setTextColor(0xFF087E8B.toInt())
                 setTypeface(typeface, Typeface.BOLD); setPadding(4, 12, 4, 6)
             })
-            sectionRows.forEach { row ->
+            group.forEach { row ->
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL; setPadding(12, 10, 12, 10)
                     background = ContextCompat.getDrawable(this@MainActivity, R.drawable.report_card)
                 }
                 card.addView(TextView(this).apply {
-                    text = row.first.label; textSize = 12f; setTextColor(0xFF17324D.toInt())
+                    text = row.label; textSize = 13f; setTextColor(0xFF17324D.toInt())
                     setTypeface(typeface, Typeface.BOLD)
                 })
-                card.addView(TextView(this).apply {
-                    text = "تست قبلی: " + (row.second?.value ?: "در گزارش قبلی ثبت نشده")
-                    textSize = 11f; setTextColor(0xFF526579.toInt()); setPadding(0, 5, 0, 2)
-                })
-                card.addView(TextView(this).apply {
-                    text = "تست جدید: " + (row.third?.value ?: "در گزارش جدید ثبت نشده")
-                    textSize = 11f; setTextColor(0xFF087E8B.toInt())
-                })
-                content.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
-                    bottomMargin = (7 * resources.displayMetrics.density).toInt()
-                })
+                names.forEachIndexed { i, name ->
+                    card.addView(TextView(this).apply {
+                        text = name + ":\n" + row.values[i]; textSize = 11f
+                        setTextColor(if (row.values[i] == "در این تست ثبت نشده") 0xFF9A5B20.toInt() else 0xFF526579.toInt())
+                        setPadding(0, 6, 0, 2)
+                    })
+                }
+                body.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (7 * resources.displayMetrics.density).toInt() })
             }
         }
         val report = buildString {
-            append("مقایسه کامل دو تست\nتست قبلی: ").append(timeOld)
-            append("\nتست جدید: ").append(timeNew).append("\n\n")
-            rows.groupBy { it.first.section }.forEach { (section, sectionRows) ->
-                append("【").append(section).append("】\n")
-                sectionRows.forEach { row ->
-                    append(row.first.label).append("\n  قبلی: ")
-                        .append(row.second?.value ?: "ثبت نشده").append("\n  جدید: ")
-                        .append(row.third?.value ?: "ثبت نشده").append("\n")
+            append("مقایسه کامل " + tests.size + " تست\n")
+            names.forEachIndexed { i, name -> append((i + 1).toString() + ". " + name + "\n") }
+            append("\n")
+            rows.groupBy { it.section }.forEach { (section, group) ->
+                append("【" + section + "】\n")
+                group.forEach { row ->
+                    append(row.label + "\n")
+                    names.forEachIndexed { i, name -> append("  " + name + ": " + row.values[i] + "\n") }
                 }
                 append("\n")
             }
         }
-        val scroll = ScrollView(this).apply { addView(content) }
-        AlertDialog.Builder(this).setTitle("مقایسه کامل دو تست")
+        val scroll = ScrollView(this).apply { addView(body) }
+        AlertDialog.Builder(this).setTitle("مقایسه " + tests.size + " تست")
             .setView(scroll)
             .setPositiveButton("اشتراک‌گذاری گزارش کامل") { _, _ -> share(report) }
             .setNegativeButton("بستن", null).show()
