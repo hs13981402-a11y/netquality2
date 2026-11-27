@@ -28,8 +28,6 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.widget.Toast
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.appcompat.app.AlertDialog
 import org.json.JSONArray
 import org.json.JSONObject
@@ -117,7 +115,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnFilterCheck: Button
     private lateinit var panelDns: View
     private lateinit var panelPacketLoss: View
-    private lateinit var webPacketLoss: WebView
     private lateinit var tvUdpLossResult: TextView
     private lateinit var tvUploadLossResult: TextView
     private lateinit var etIperfHost: EditText
@@ -203,7 +200,6 @@ class MainActivity : AppCompatActivity() {
         btnFilterCheck = findViewById(R.id.btnFilterCheck)
         panelDns = findViewById(R.id.panelDns)
         panelPacketLoss = findViewById(R.id.panelPacketLoss)
-        webPacketLoss = findViewById(R.id.webPacketLoss)
         tvUdpLossResult = findViewById(R.id.tvUdpLossResult)
         tvUploadLossResult = findViewById(R.id.tvUploadLossResult)
         etIperfHost = findViewById(R.id.etIperfHost)
@@ -260,12 +256,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabPacketLoss).setOnClickListener { showPanel(6) }
         findViewById<Button>(R.id.btnUdpLoss).setOnClickListener { runStandaloneUdpLoss() }
         findViewById<Button>(R.id.btnUploadLoss).setOnClickListener { runUploadUdpLoss() }
-        findViewById<Button>(R.id.btnReloadPacketLossWeb).setOnClickListener { webPacketLoss.loadUrl("https://fa.packetlosstest.com/") }
-        webPacketLoss.settings.javaScriptEnabled = true
-        webPacketLoss.settings.domStorageEnabled = true
-        webPacketLoss.settings.loadsImagesAutomatically = true
-        webPacketLoss.webViewClient = WebViewClient()
-        webPacketLoss.loadUrl("https://fa.packetlosstest.com/")
         btnDnsLookup.setOnClickListener { runDnsLookup() }
         findViewById<Button>(R.id.btnAddDnsServer).setOnClickListener { addDnsServer() }
         refreshDnsServers()
