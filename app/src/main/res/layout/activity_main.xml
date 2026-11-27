@@ -199,6 +199,23 @@
                     android:checked="false"
                     android:text="اجرای خودکار پس از اتصال مجدد (اختیاری)" />
 
+                <CheckBox
+                    android:id="@+id/cbUploadTest"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:checked="false"
+                    android:text="اجرای تست آپلود و Packet Loss حین آپلود (اختیاری)"
+                    android:buttonTint="#0E9F9A"
+                    android:textColor="#17324D"
+                    android:textSize="14sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="در حالت عادی آپلود انجام نمی‌شود؛ فقط با فعال‌کردن این گزینه اجرا خواهد شد."
+                    android:textColor="#607080"
+                    android:textSize="12sp" />
+
                 <Button
                     android:id="@+id/btnStart"
                     android:layout_width="match_parent"
