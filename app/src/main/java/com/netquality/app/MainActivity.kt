@@ -981,14 +981,15 @@ class MainActivity : AppCompatActivity() {
         val rows = ArrayList<String>()
 
         stats.forEachIndexed { i, s ->
-            val ip = s.ip ?: "*"
+            val ip = s.ip ?: "بدون پاسخ"
             val last = if (s.recv == 0) "—" else f0(s.last)
             val avg = if (s.recv == 0) "—" else f0(s.avg)
             val mn = if (s.recv == 0) "—" else f0(s.min)
             val mx = if (s.recv == 0) "—" else f0(s.max)
-            rows.add(String.format(Locale.US,
-                "%02d | %-39s | %5.1f%% | %6s | %6s | %6s | %6s | %s",
-                i + 1, ip, s.loss, last, avg, mn, mx, spark(s.hist)))
+            rows.add(String.format(Locale.US, "HOP %02d  |  %s", i + 1, ip))
+            rows.add(String.format(Locale.US, "LOSS %5.1f%%  |  LAST %s ms  |  AVG %s ms", s.loss, last, avg))
+            rows.add(String.format(Locale.US, "MIN %s ms  |  MAX %s ms  |  %s", mn, mx, spark(s.hist)))
+            rows.add("")
         }
         val table = rows.joinToString("\n")
         val sent = stats.lastOrNull()?.sent ?: 0
