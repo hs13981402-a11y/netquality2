@@ -230,10 +230,11 @@ object Net {
         val ips = try { InetAddress.getAllByName(domain).mapNotNull { it.hostAddress }.distinct() } catch (_: Exception) { emptyList() }
         val chain = ArrayList<String>()
         var current = domain
-        repeat(8) {
-            val next = dohLookup(current, 5).firstOrNull() ?: return@repeat
-            if (next.equals(current, true) || chain.any { it.equals(next, true) }) return@repeat
-            chain.add(next); current = next
+        for (hop in 0 until 8) {
+            val next = dohLookup(current, 5).firstOrNull() ?: break
+            if (next.equals(current, true) || chain.any { it.equals(next, true) }) break
+            chain.add(next)
+            current = next
         }
         val ns = dohLookup(domain, 2)
         var server: String? = null; var cfRay: String? = null
