@@ -1185,9 +1185,12 @@ class MainActivity : AppCompatActivity() {
                         part.contains(":") -> part.substringBefore(":").trim()
                         else -> part.take(48)
                     }.ifBlank { "جزئیات " + (n + 1) }
+                    // خلاصه وضعیت DNS در ابتدای گزارش، دوباره در بخش جزئیات DNS آمده است؛
+                    // فقط ردیف‌های جزئیات را نگه می‌داریم تا در مقایسه تکراری دیده نشوند.
+                    if (Regex("^[✓✕—]\\s*DNS", RegexOption.IGNORE_CASE).containsMatchIn(line)) return@forEach
                     val key = section + "|" + label
-                    val unique = if (map.containsKey(key)) key + "|" + map.size else key
-                    map[unique] = section to part
+                    // اگر یک شاخص دوباره آمده باشد، مقدار نهایی جایگزین شود؛ ردیف تکراری نساز.
+                    map[key] = section to part
                 }
             }
             return map
