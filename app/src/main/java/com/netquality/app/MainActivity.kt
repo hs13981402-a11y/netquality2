@@ -517,6 +517,25 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             recolor(rootView)
+            val allButtons = listOf(
+                R.id.btnStart, R.id.btnHistory, R.id.btnCompareTests, R.id.btnShareTest,
+                R.id.btnPlot, R.id.btnSharePlot, R.id.btnFilterCheck, R.id.btnCompareFilter,
+                R.id.btnShareFilter, R.id.btnDnsLookup, R.id.btnAddDnsServer,
+                R.id.btnUdpLoss, R.id.btnUploadLoss, R.id.btnSave, R.id.btnReset,
+                R.id.tabTest, R.id.tabPlot, R.id.tabChart, R.id.tabFilter,
+                R.id.tabDns, R.id.tabPacketLoss, R.id.tabSettings
+            )
+            allButtons.forEach { id ->
+                findViewById<Button>(id)?.apply {
+                    backgroundTintList = ColorStateList.valueOf(Color.parseColor("#26364D"))
+                    setTextColor(lightText)
+                }
+            }
+            listOf(R.id.btnStart, R.id.btnPlot, R.id.btnFilterCheck, R.id.btnDnsLookup, R.id.btnUdpLoss, R.id.btnUploadLoss, R.id.btnSave).forEach { id ->
+                findViewById<Button>(id)?.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#0E9F9A"))
+            }
+            findViewById<Button>(R.id.btnCompareTests)?.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#304A70"))
+            findViewById<Button>(R.id.tabTest)?.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#0E9F9A"))
             intArrayOf(R.id.tvStatus, R.id.tvLog, R.id.tvFilterResult, R.id.tvDnsLookupResult, R.id.tvUdpLossResult, R.id.tvUploadLossResult, R.id.tvTable, R.id.tvPlotInfo).forEach {
                 findViewById<View>(it)?.setBackgroundColor(Color.parseColor("#162338"))
             }
