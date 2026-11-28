@@ -465,6 +465,7 @@ class MainActivity : AppCompatActivity() {
                 "آزمون‌های واقعی UDP با موتور iperf3؛ آمار افت بسته و Jitter از گزارش سرور دریافت می‌شود." to "Real UDP tests powered by iperf3. Packet loss and jitter are read from the server report."
             )
             val root = findViewById<View>(android.R.id.content)
+            root.layoutDirection = View.LAYOUT_DIRECTION_LTR
             fun walk(view: View) {
                 if (view is TextView) {
                     val original = view.text?.toString()
