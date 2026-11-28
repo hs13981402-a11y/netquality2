@@ -334,11 +334,13 @@ class MainActivity : AppCompatActivity() {
     // فهرست اولیه سرورهای عمومی که در فهرست‌های عمومی، پشتیبانی UDP برای آن‌ها ذکر شده است.
     // وضعیت دسترسی هر سرور در زمان اجرای آزمون دوباره بررسی می‌شود.
     private val publicIperfServers = listOf(
-        PublicIperfServer("speedtest.uztelecom.uz", 5200, "ازبکستان - تاشکند"),
         PublicIperfServer("iperf.online.net", 5200, "فرانسه - پاریس"),
-        PublicIperfServer("iperf3.moji.fr", 5200, "فرانسه - پاریس"),
-        PublicIperfServer("speedtest.milkywan.fr", 9200, "فرانسه"),
-        PublicIperfServer("ping.online.net", 5200, "فرانسه - پاریس")
+        PublicIperfServer("ping.online.net", 5200, "فرانسه - ویتری"),
+        PublicIperfServer("iperf3-vie-at.alwyzon.net", 5201, "اتریش - وین"),
+        PublicIperfServer("185.180.12.40", 5201, "اتریش - وین"),
+        PublicIperfServer("37.19.203.1", 5201, "بلغارستان - صوفیه"),
+        PublicIperfServer("138.199.14.66", 5201, "فرانسه - مارسی"),
+        PublicIperfServer("speedtest.uninet.az", 5201, "آذربایجان - باکو")
     )
 
     private suspend fun runIperfUdpWithFallback(bitrate: String, durationSeconds: Int): Net.IperfUdpResult {
