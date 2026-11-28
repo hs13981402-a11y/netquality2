@@ -390,6 +390,7 @@ class MainActivity : AppCompatActivity() {
                 val targetTcp = withContext(Dispatchers.IO) { Net.tcpOnce(domain, 443, 5000) }
                 val controlTcp = withContext(Dispatchers.IO) { Net.tcpOnce("1.1.1.1", 443, 5000) }
                 val https = withContext(Dispatchers.IO) { Net.httpCheck("https://$domain", false) }
+                val infra = withContext(Dispatchers.IO) { Net.inspectSiteInfrastructure(domain) }
                 val verdict = when {
                     https.code != null && https.code in 200..399 -> "قابل دسترس"
                     dnsMs == null && controlTcp != null -> "احتمال اختلال یا محدودیت DNS"
@@ -411,6 +412,16 @@ class MainActivity : AppCompatActivity() {
                     append("TCP/443 مقصد کنترلی 1.1.1.1: ").append(controlTcp?.let { "موفق (${f0(it)}ms)" } ?: "ناموفق").append("\n")
                     append("HTTPS: ").append(https.code?.toString() ?: "بدون پاسخ (${https.err ?: "خطا"})").append("\n")
                     append("زمان پاسخ HTTPS: ${https.ms}ms\n\n")
+                    append("── اطلاعات IP و CDN ──\n")
+                    append("IPهای پاسخ DNS: ").append(infra.ips.joinToString(", ").ifBlank { "دریافت نشد" }).append("\n")
+                    append("CDN / شبکه محافظ: ${infra.cdn}\n")
+                    infra.serverHeader?.let { append("Server header: $it\n") }
+                    infra.org?.let { append("سازمان/شبکه IP: $it\n") }
+                    infra.country?.let { append("کشور تخمینی IP: $it\n") }
+                    infra.city?.let { append("شهر تخمینی IP: $it\n") }
+                    infra.cfRay?.let { append("CF-Ray: $it\n") }
+                    infra.colo?.let { append("Cloudflare PoP (کد مرکز پاسخ‌گو): $it\n") }
+                    append(infra.geoNote ?: "").append("\n\n")
                     append("تفسیر: $colorHint\n\n")
                     append("توجه: موفق بودن Ping یا TCP به معنی نبود فیلترینگ نیست. این آزمون فقط از اتصال فعلی گوشی استفاده می‌کند. برای مقایسه، آن را روی اینترنت مخابرات، همراه اول و سایر اپراتورها جداگانه اجرا کنید. نتیجه قطعی فیلترینگ فقط با مقایسه چند مسیر و بررسی دقیق‌تر قابل اعلام است.")
                     append("\n\nاپراتور ثبت‌شده: ").append(spFilterOperator.selectedItem.toString())
