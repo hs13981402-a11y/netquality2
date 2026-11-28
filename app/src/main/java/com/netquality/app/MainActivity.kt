@@ -334,67 +334,105 @@ class MainActivity : AppCompatActivity() {
     private fun setupAppearanceSettings() {
         val scroll = panelSettings as? ScrollView ?: return
         val content = scroll.getChildAt(0) as? LinearLayout ?: return
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+        fun cardBackground(): android.graphics.drawable.GradientDrawable =
+            android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor(if (isDarkTheme()) "#17263A" else "#FFFFFF"))
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), Color.parseColor(if (isDarkTheme()) "#2A3B52" else "#E2EAF2"))
+            }
+        fun makeChoice(label: String, selected: Boolean): Button = Button(this).apply {
+            text = label
+            isAllCaps = false
+            textSize = 13f
+            minHeight = dp(48)
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor(if (selected) "#087F8C" else if (isDarkTheme()) "#22334A" else "#F0F4F8"))
+                cornerRadius = dp(12).toFloat()
+                if (!selected) setStroke(dp(1), Color.parseColor(if (isDarkTheme()) "#344A63" else "#DCE5EE"))
+            }
+            setTextColor(Color.parseColor(if (selected) "#FFFFFF" else if (isDarkTheme()) "#E7EEF7" else "#34465C"))
+            stateListAnimator = null
+        }
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
         val section = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 14, 16, 14)
-            setBackgroundResource(R.drawable.panel_card)
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = cardBackground()
         }
-        val title = TextView(this).apply {
-            text = "زبان و ظاهر برنامه / Language & appearance"
-            textSize = 17f
+        section.addView(TextView(this).apply {
+            text = if (isEnglishUi()) "Personalize your workspace" else "شخصی‌سازی محیط برنامه"
+            textSize = 18f
+            setTextColor(Color.parseColor(if (isDarkTheme()) "#F2F6FC" else "#17324D"))
             setTypeface(typeface, Typeface.BOLD)
+        })
+        section.addView(TextView(this).apply {
+            text = if (isEnglishUi()) "Choose app language" else "زبان برنامه را انتخاب کنید"
+            textSize = 13f
+            setTextColor(Color.parseColor(if (isDarkTheme()) "#AFC1D5" else "#64758A"))
+            setPadding(0, dp(16), 0, dp(8))
+        })
+        val languageRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER
         }
-        val languageLabel = TextView(this).apply {
-            text = "زبان برنامه / App language"
-            textSize = 14f
-            setPadding(0, 12, 0, 4)
+        val fa = makeChoice("🇮🇷  فارسی", (prefs.getString("ui_language", "fa") ?: "fa") == "fa")
+        val en = makeChoice("🇬🇧  English", (prefs.getString("ui_language", "fa") ?: "fa") == "en")
+        languageRow.addView(fa, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(6) })
+        languageRow.addView(en, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginStart = dp(6) })
+        section.addView(languageRow)
+        section.addView(TextView(this).apply {
+            text = if (isEnglishUi()) "Color appearance" else "حالت نمایش و رنگ‌بندی"
+            textSize = 13f
+            setTextColor(Color.parseColor(if (isDarkTheme()) "#AFC1D5" else "#64758A"))
+            setPadding(0, dp(18), 0, dp(8))
+        })
+        val themeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER
         }
-        val language = Spinner(this)
-        language.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item,
-            listOf("فارسی", "English")).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        val themeLabel = TextView(this).apply {
-            text = "قالب رنگی / Theme"
-            textSize = 14f
-            setPadding(0, 12, 0, 4)
-        }
-        val theme = Spinner(this)
-        theme.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item,
-            listOf("روشن / Light", "تیره / Dark")).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        section.addView(title)
-        section.addView(languageLabel)
-        section.addView(language)
-        section.addView(themeLabel)
-        section.addView(theme)
+        val light = makeChoice("☀  روشن  /  Light", !isDarkTheme())
+        val dark = makeChoice("☾  تیره  /  Dark", isDarkTheme())
+        themeRow.addView(light, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(6) })
+        themeRow.addView(dark, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginStart = dp(6) })
+        section.addView(themeRow)
+        section.addView(TextView(this).apply {
+            text = if (isEnglishUi()) "Changes are saved automatically." else "تغییرات به‌صورت خودکار ذخیره می‌شوند."
+            textSize = 11f
+            setTextColor(Color.parseColor(if (isDarkTheme()) "#91A4BB" else "#8292A5"))
+            setPadding(0, dp(10), 0, 0)
+        })
         content.addView(section, 0)
-        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
-        language.setSelection(if ((prefs.getString("ui_language", "fa") ?: "fa") == "en") 1 else 0)
-        theme.setSelection(if ((prefs.getString("ui_theme", "light") ?: "light") == "dark") 1 else 0)
-        language.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selected = if (position == 1) "en" else "fa"
-                if ((prefs.getString("ui_language", "fa") ?: "fa") != selected) {
-                    prefs.edit().putString("ui_language", selected).apply()
-                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selected))
-                }
-            }
+        fun refreshChoices() {
+            val language = (prefs.getString("ui_language", "fa") ?: "fa")
+            fa.background = makeChoice("🇮🇷  فارسی", language == "fa").background
+            en.background = makeChoice("🇬🇧  English", language == "en").background
+            fa.setTextColor(Color.parseColor(if (language == "fa") "#FFFFFF" else if (isDarkTheme()) "#E7EEF7" else "#34465C"))
+            en.setTextColor(Color.parseColor(if (language == "en") "#FFFFFF" else if (isDarkTheme()) "#E7EEF7" else "#34465C"))
+            light.background = makeChoice("☀  روشن  /  Light", !isDarkTheme()).background
+            dark.background = makeChoice("☾  تیره  /  Dark", isDarkTheme()).background
+            light.setTextColor(Color.parseColor(if (!isDarkTheme()) "#FFFFFF" else "#E7EEF7"))
+            dark.setTextColor(Color.parseColor(if (isDarkTheme()) "#FFFFFF" else "#34465C"))
         }
-        theme.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selected = if (position == 1) "dark" else "light"
-                if ((prefs.getString("ui_theme", "light") ?: "light") != selected) {
-                    prefs.edit().putString("ui_theme", selected).apply()
-                    AppCompatDelegate.setDefaultNightMode(
-                        if (selected == "dark") AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
-                    )
-                }
-            }
+        fa.setOnClickListener {
+            prefs.edit().putString("ui_language", "fa").apply()
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fa"))
         }
+        en.setOnClickListener {
+            prefs.edit().putString("ui_language", "en").apply()
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en"))
+        }
+        light.setOnClickListener {
+            prefs.edit().putString("ui_theme", "light").apply()
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        }
+        dark.setOnClickListener {
+            prefs.edit().putString("ui_theme", "dark").apply()
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        }
+        refreshChoices()
     }
 
     private fun applyUiLanguage() {
@@ -496,17 +534,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isDarkTheme(): Boolean =
+        getSharedPreferences("netq", MODE_PRIVATE).getString("ui_theme", "light") == "dark"
+
     private fun applyAppearanceColors() {
-        val dark = getSharedPreferences("netq", MODE_PRIVATE).getString("ui_theme", "light") == "dark"
+        val dark = isDarkTheme()
+        val page = Color.parseColor(if (dark) "#0B1220" else "#F3F6FA")
         val root = findViewById<View>(android.R.id.content)
-        root.setBackgroundColor(Color.parseColor(if (dark) "#0B1220" else "#F3F6FA"))
-        val panels = intArrayOf(R.id.panelTest, R.id.panelPlot, R.id.panelSettings, R.id.panelChart, R.id.panelFilter, R.id.panelDns, R.id.panelPacketLoss)
-        panels.forEach { findViewById<View>(it)?.setBackgroundColor(Color.parseColor(if (dark) "#0B1220" else "#F3F6FA")) }
+        root.setBackgroundColor(page)
+        intArrayOf(R.id.panelTest, R.id.panelPlot, R.id.panelSettings, R.id.panelChart,
+            R.id.panelFilter, R.id.panelDns, R.id.panelPacketLoss).forEach {
+            findViewById<View>(it)?.setBackgroundColor(page)
+        }
         val tabBar = findViewById<View>(R.id.tabTest).parent?.parent as? View
-        tabBar?.setBackgroundColor(Color.parseColor(if (dark) "#070E1B" else "#101B35"))
+        tabBar?.setBackgroundColor(Color.parseColor(if (dark) "#101D30" else "#FFFFFF"))
+        // Keep primary content readable in both palettes without washing out the tab labels.
         if (dark) {
             val lightText = Color.parseColor("#E6EDF7")
-            val rootView = findViewById<View>(android.R.id.content)
             fun recolor(view: View) {
                 if (view is TextView) {
                     view.setTextColor(lightText)
@@ -516,30 +560,25 @@ class MainActivity : AppCompatActivity() {
                     for (i in 0 until view.childCount) recolor(view.getChildAt(i))
                 }
             }
-            recolor(rootView)
-            val allButtons = listOf(
-                R.id.btnStart, R.id.btnHistory, R.id.btnCompareTests, R.id.btnShareTest,
+            recolor(root)
+            val buttons = listOf(R.id.btnStart, R.id.btnHistory, R.id.btnCompareTests, R.id.btnShareTest,
                 R.id.btnPlot, R.id.btnSharePlot, R.id.btnFilterCheck, R.id.btnCompareFilter,
-                R.id.btnShareFilter, R.id.btnDnsLookup, R.id.btnAddDnsServer,
-                R.id.btnUdpLoss, R.id.btnUploadLoss, R.id.btnSave, R.id.btnReset,
-                R.id.tabTest, R.id.tabPlot, R.id.tabChart, R.id.tabFilter,
-                R.id.tabDns, R.id.tabPacketLoss, R.id.tabSettings
-            )
-            allButtons.forEach { id ->
-                findViewById<Button>(id)?.apply {
-                    backgroundTintList = ColorStateList.valueOf(Color.parseColor("#26364D"))
-                    setTextColor(lightText)
-                }
+                R.id.btnShareFilter, R.id.btnDnsLookup, R.id.btnAddDnsServer, R.id.btnUdpLoss,
+                R.id.btnUploadLoss, R.id.btnSave, R.id.btnReset)
+            buttons.forEach { findViewById<Button>(it)?.apply {
+                backgroundTintList = ColorStateList.valueOf(Color.parseColor("#26364D"))
+                setTextColor(lightText)
+            } }
+            listOf(R.id.btnStart, R.id.btnPlot, R.id.btnFilterCheck, R.id.btnDnsLookup,
+                R.id.btnUdpLoss, R.id.btnUploadLoss, R.id.btnSave).forEach {
+                findViewById<Button>(it)?.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#0E9F9A"))
             }
-            listOf(R.id.btnStart, R.id.btnPlot, R.id.btnFilterCheck, R.id.btnDnsLookup, R.id.btnUdpLoss, R.id.btnUploadLoss, R.id.btnSave).forEach { id ->
-                findViewById<Button>(id)?.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#0E9F9A"))
-            }
-            findViewById<Button>(R.id.btnCompareTests)?.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#304A70"))
-            findViewById<Button>(R.id.tabTest)?.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#0E9F9A"))
-            intArrayOf(R.id.tvStatus, R.id.tvLog, R.id.tvFilterResult, R.id.tvDnsLookupResult, R.id.tvUdpLossResult, R.id.tvUploadLossResult, R.id.tvTable, R.id.tvPlotInfo).forEach {
+            intArrayOf(R.id.tvStatus, R.id.tvLog, R.id.tvFilterResult, R.id.tvDnsLookupResult,
+                R.id.tvUdpLossResult, R.id.tvUploadLossResult, R.id.tvTable, R.id.tvPlotInfo).forEach {
                 findViewById<View>(it)?.setBackgroundColor(Color.parseColor("#162338"))
             }
         }
+        showPanel(0)
     }
 
     private fun showPanel(i: Int) {
@@ -551,12 +590,28 @@ class MainActivity : AppCompatActivity() {
         panelDns.visibility = if (i == 5) View.VISIBLE else View.GONE
         panelPacketLoss.visibility = if (i == 6) View.VISIBLE else View.GONE
 
-        val tabIds = intArrayOf(R.id.tabTest, R.id.tabPlot, R.id.tabSettings, R.id.tabChart, R.id.tabFilter, R.id.tabDns, R.id.tabPacketLoss)
+        val dark = isDarkTheme()
+        val tabIds = intArrayOf(R.id.tabTest, R.id.tabPlot, R.id.tabSettings, R.id.tabChart,
+            R.id.tabFilter, R.id.tabDns, R.id.tabPacketLoss)
         tabIds.forEachIndexed { index, id ->
-            val tab = findViewById<Button>(id)
-            val selected = index == i
-            tab.backgroundTintList = ColorStateList.valueOf(Color.parseColor(if (selected) "#0E9F9A" else "#263858"))
-            tab.setTextColor(Color.parseColor(if (selected) "#FFFFFF" else "#DCE8F4"))
+            findViewById<Button>(id)?.apply {
+                val selected = index == i
+                backgroundTintList = ColorStateList.valueOf(Color.parseColor(
+                    when {
+                        selected -> "#087F8C"
+                        dark -> "#26364D"
+                        else -> "#EAF0F6"
+                    }
+                ))
+                setTextColor(Color.parseColor(
+                    when {
+                        selected -> "#FFFFFF"
+                        dark -> "#DCE8F4"
+                        else -> "#34465C"
+                    }
+                ))
+                alpha = 1f
+            }
         }
     }
 
