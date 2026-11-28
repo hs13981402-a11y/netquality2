@@ -104,8 +104,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etFilterDomain: EditText
     private lateinit var spFilterSite: Spinner
     private lateinit var spFilterOperator: Spinner
-    private lateinit var spFilterCompareA: Spinner
-    private lateinit var spFilterCompareB: Spinner
+    private lateinit var etFilterTestName: EditText
     private lateinit var etDnsServer: EditText
     private lateinit var spDnsServer: Spinner
     private lateinit var dnsChartsContainer: LinearLayout
@@ -190,8 +189,7 @@ class MainActivity : AppCompatActivity() {
         etFilterDomain = findViewById(R.id.etFilterDomain)
         spFilterSite = findViewById(R.id.spFilterSite)
         spFilterOperator = findViewById(R.id.spFilterOperator)
-        spFilterCompareA = findViewById(R.id.spFilterCompareA)
-        spFilterCompareB = findViewById(R.id.spFilterCompareB)
+        etFilterTestName = findViewById(R.id.etFilterTestName)
         etDnsServer = findViewById(R.id.etDnsServer)
         spDnsServer = findViewById(R.id.spDnsServer)
         dnsChartsContainer = findViewById(R.id.dnsChartsContainer)
@@ -269,7 +267,7 @@ class MainActivity : AppCompatActivity() {
             manageDnsServer()
             true
         }
-        findViewById<Button>(R.id.btnCompareFilter).setOnClickListener { compareFilterOperators() }
+        findViewById<Button>(R.id.btnCompareFilter).setOnClickListener { compareFilterTests() }
         findViewById<Button>(R.id.btnShareFilter).setOnClickListener {
             val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
             share("گزارش بررسی دسترسی\nزمان: $stamp\n\n${tvFilterResult.text}")
@@ -418,7 +416,7 @@ class MainActivity : AppCompatActivity() {
         }
         btnFilterCheck.isEnabled = false
         filterProgress.visibility = View.VISIBLE
-        val steps = linkedMapOf("DNS سیستم" to "در انتظار", "DNS جایگزین 1.1.1.1" to "در انتظار", "DNS جایگزین 8.8.8.8" to "در انتظار", "TCP/443 مقصد" to "در انتظار", "TCP/443 کنترلی" to "در انتظار", "TLS با SNI" to "در انتظار", "HTTPS" to "در انتظار", "CDN و اطلاعات IP" to "در انتظار")
+        val steps = linkedMapOf("DNS سیستم" to "در انتظار", "DNS جایگزین 1.1.1.1" to "در انتظار", "DNS جایگزین 8.8.8.8" to "در انتظار", "DNS مخابرات 5.200.200.200" to "در انتظار", "DNS زیرساخت 2.189.44.44" to "در انتظار", "TCP/443 مقصد" to "در انتظار", "TCP/443 کنترلی" to "در انتظار", "TLS با SNI" to "در انتظار", "HTTPS" to "در انتظار", "CDN و اطلاعات IP" to "در انتظار")
         fun renderProgress() {
             tvFilterResult.text = buildString {
                 append("بررسی مرحله‌ای دامنه: $domain\n")
@@ -442,6 +440,12 @@ class MainActivity : AppCompatActivity() {
                 setStep("DNS جایگزین 8.8.8.8", "در حال اجرا")
                 val dnsGoogle = withContext(Dispatchers.IO) { Net.dnsQuery("8.8.8.8", domain, 3000) }
                 setStep("DNS جایگزین 8.8.8.8", if (dnsGoogle != null && dnsGoogle >= 0) "موفق" else "ناموفق")
+                setStep("DNS مخابرات 5.200.200.200", "در حال اجرا")
+                val dnsMokhaberat = withContext(Dispatchers.IO) { Net.dnsQuery("5.200.200.200", domain, 3500) }
+                setStep("DNS مخابرات 5.200.200.200", if (dnsMokhaberat != null && dnsMokhaberat >= 0) "موفق" else "ناموفق")
+                setStep("DNS زیرساخت 2.189.44.44", "در حال اجرا")
+                val dnsInfrastructure = withContext(Dispatchers.IO) { Net.dnsQuery("2.189.44.44", domain, 3500) }
+                setStep("DNS زیرساخت 2.189.44.44", if (dnsInfrastructure != null && dnsInfrastructure >= 0) "موفق" else "ناموفق")
                 setStep("TCP/443 مقصد", "در حال اجرا")
                 val tcp = withContext(Dispatchers.IO) { Net.tcpOnce(domain, 443, 5000) }
                 setStep("TCP/443 مقصد", if (tcp != null) "موفق" else "ناموفق")
@@ -459,7 +463,7 @@ class MainActivity : AppCompatActivity() {
                 setStep("CDN و اطلاعات IP", if (infra.ips.isNotEmpty() || infra.cname != null) "موفق" else "نامشخص")
                 val verdict = when {
                     https.code != null && https.code in 200..399 -> "سایت از مسیر فعلی قابل دسترس است"
-                    dnsMs == null && (dnsCf == null || dnsCf < 0) && (dnsGoogle == null || dnsGoogle < 0) && control != null -> "احتمال اختلال DNS؛ پاسخ DNS سیستم و دو DNS جایگزین دریافت نشد"
+                    listOf(dnsMs, dnsCf, dnsGoogle, dnsMokhaberat, dnsInfrastructure).all { it == null || it < 0 } && control != null -> "احتمال اختلال DNS؛ پاسخ DNS سیستم و دو DNS جایگزین دریافت نشد"
                     tcp == null && control != null -> "احتمال محدودیت یا اختلال اختصاصی در مسیر مقصد؛ اتصال کنترلی برقرار است"
                     tcp != null && tls == null -> "TCP برقرار است اما TLS/SNI ناموفق است؛ احتمال اختلال TLS، گواهی یا بازرسی مسیر"
                     https.code == 403 || https.code == 451 -> "سرور پاسخ HTTP محدودکننده داده؛ به‌تنهایی اثبات فیلترینگ شبکه نیست"
@@ -471,6 +475,8 @@ class MainActivity : AppCompatActivity() {
                     append("\nDNS سیستم: ").append(dnsMs?.let { "موفق ($it ms)" } ?: "ناموفق").append("\n")
                     append("DNS 1.1.1.1: ").append(dnsCf?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
                     append("DNS 8.8.8.8: ").append(dnsGoogle?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
+                    append("DNS مخابرات 5.200.200.200: ").append(dnsMokhaberat?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
+                    append("DNS زیرساخت 2.189.44.44: ").append(dnsInfrastructure?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
                     append("TCP/443 مقصد: ").append(tcp?.let { "موفق (${f0(it)} ms)" } ?: "ناموفق").append("\n")
                     append("TCP کنترلی 1.1.1.1: ").append(control?.let { "موفق (${f0(it)} ms)" } ?: "ناموفق").append("\n")
                     append("TLS/SNI: ").append(tls?.let { "موفق ($it ms)" } ?: "ناموفق").append("\n")
@@ -492,7 +498,19 @@ class MainActivity : AppCompatActivity() {
                     append("\nاپراتور ثبت‌شده: ").append(spFilterOperator.selectedItem.toString())
                 }
                 tvFilterResult.text = report
-                getSharedPreferences("netq", MODE_PRIVATE).edit().putString("filter_result_${spFilterOperator.selectedItem}", report).apply()
+                val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+                val history = try { JSONArray(prefs.getString("filter_history", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+                val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
+                val opName = spFilterOperator.selectedItem.toString()
+                val testName = etFilterTestName.text.toString().trim().ifBlank { "$opName - $domain - $stamp" }
+                val item = JSONObject().apply {
+                    put("name", testName); put("time", stamp); put("operator", opName)
+                    put("network", opName); put("domain", domain); put("report", report)
+                }
+                val next = JSONArray().put(item)
+                for (i in 0 until minOf(history.length(), 19)) next.put(history.getJSONObject(i))
+                prefs.edit().putString("filter_history", next.toString())
+                    .putString("filter_result_$opName", report).apply()
             } catch (e: Exception) {
                 tvFilterResult.text = "خطا در اجرای آزمون: ${e.message ?: e.javaClass.simpleName}"
             } finally { filterProgress.visibility = View.GONE; btnFilterCheck.isEnabled = true }
@@ -689,6 +707,51 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
             .setNegativeButton("بستن", null).show()
     }
+    private fun compareFilterTests() {
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val arr = try { JSONArray(prefs.getString("filter_history", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        if (arr.length() < 2) {
+            AlertDialog.Builder(this).setTitle("مقایسه تست‌ها")
+                .setMessage("برای مقایسه ابتدا حداقل دو تست فیلترینگ اجرا کنید.")
+                .setPositiveButton("متوجه شدم", null).show(); return
+        }
+        val labels = Array(arr.length()) { i ->
+            val item = arr.getJSONObject(i)
+            "${item.optString("name")} | ${item.optString("domain")} | ${item.optString("time")}"
+        }
+        val selected = BooleanArray(arr.length())
+        val dialog = AlertDialog.Builder(this).setTitle("انتخاب تست‌ها برای مقایسه")
+            .setMultiChoiceItems(labels, selected) { _, which, checked -> selected[which] = checked }
+            .setPositiveButton("مقایسه", null)
+            .setNeutralButton("تغییر نام") { _, _ ->
+                val chosen = selected.indices.filter { selected[it] }
+                if (chosen.size == 1) renameFilterTest(arr, chosen[0])
+                else Toast.makeText(this, "برای تغییر نام فقط یک تست را انتخاب کنید.", Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("بستن", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val chosen = selected.indices.filter { selected[it] }
+                if (chosen.size < 2) Toast.makeText(this, "حداقل دو تست انتخاب کنید.", Toast.LENGTH_SHORT).show()
+                else { dialog.dismiss(); showSelectedTestsComparison(arr, chosen) }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun renameFilterTest(arr: JSONArray, index: Int) {
+        val item = arr.optJSONObject(index) ?: return
+        val field = EditText(this).apply { setSingleLine(true); setText(item.optString("name")); setSelection(text.length) }
+        AlertDialog.Builder(this).setTitle("تغییر نام تست").setView(field)
+            .setPositiveButton("ذخیره") { _, _ ->
+                val value = field.text.toString().trim()
+                if (value.isNotBlank()) {
+                    item.put("name", value)
+                    getSharedPreferences("netq", MODE_PRIVATE).edit().putString("filter_history", arr.toString()).apply()
+                    Toast.makeText(this, "نام تست ذخیره شد.", Toast.LENGTH_SHORT).show()
+                }
+            }.setNegativeButton("انصراف", null).show()
+    }
+
     private fun share(text: String) {
         if (text.isBlank()) return
         val i = Intent(Intent.ACTION_SEND).apply {
