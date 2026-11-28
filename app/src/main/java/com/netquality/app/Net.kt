@@ -266,7 +266,7 @@ object Net {
         val cnameText = chain.joinToString(" ").lowercase(Locale.ROOT)
         val nsText = ns.joinToString(" ").lowercase(Locale.ROOT)
         val orgText = org.orEmpty().lowercase(Locale.ROOT); val asnText = asn.orEmpty().lowercase(Locale.ROOT)
-        val signals = listOf(cnameText, nsText, orgText, server.orEmpty(), via, cache, served, cfId, azureRef, imperva)
+        val signals = listOf(cnameText, orgText, server.orEmpty(), via, cache, served, cfId, azureRef, imperva)
             .joinToString(" ").lowercase(Locale.ROOT)
         val rules = listOf(
             Triple("Cloudflare", listOf("cloudflare"), listOf("13335")),
@@ -299,6 +299,7 @@ object Net {
         if (chain.isNotEmpty()) evidence.add("زنجیره CNAME: " + chain.joinToString(" → "))
         if (ns.isNotEmpty()) evidence.add("NS: " + ns.take(5).joinToString(", "))
         if (cfRay != null) evidence.add("هدر اختصاصی CF-Ray")
+        if (ns.isNotEmpty()) evidence.add("NS دامنه (به‌تنهایی اثبات CDN نیست): " + ns.take(5).joinToString(", "))
         if (cfId.isNotBlank()) evidence.add("هدر X-Amz-Cf-Id")
         if (azureRef.isNotBlank()) evidence.add("هدر X-Azure-Ref")
         if (imperva.isNotBlank()) evidence.add("هدر X-Iinfo")
