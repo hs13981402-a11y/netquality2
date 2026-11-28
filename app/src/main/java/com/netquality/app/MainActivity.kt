@@ -119,6 +119,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etIperfHost: EditText
     private lateinit var etIperfPort: EditText
     private lateinit var cbAutoIperfServer: CheckBox
+    private lateinit var spManualIperfServer: Spinner
+    private lateinit var manualIperfActions: LinearLayout
+    private data class ManualIperfServer(val name: String, val host: String, val port: Int)
+    private val manualIperfServers = mutableListOf<ManualIperfServer>()
+    private var selectedManualIperfServer = 0
     private lateinit var etDnsLookup: EditText
     private lateinit var spDnsType: Spinner
     private lateinit var tvDnsLookupResult: TextView
@@ -210,7 +215,9 @@ class MainActivity : AppCompatActivity() {
         cbAutoIperfServer.isChecked = iperfPrefs.getBoolean("iperf_auto", true)
         cbAutoIperfServer.setOnCheckedChangeListener { _, checked ->
             iperfPrefs.edit().putBoolean("iperf_auto", checked).apply()
+            refreshManualIperfUi()
         }
+        setupManualIperfServerManager()
         etDnsLookup = findViewById(R.id.etDnsLookup)
         spDnsType = findViewById(R.id.spDnsType)
         tvDnsLookupResult = findViewById(R.id.tvDnsLookupResult)
@@ -341,6 +348,176 @@ class MainActivity : AppCompatActivity() {
         PublicIperfServer("speedtest.uninet.az", 5201, "آذربایجان - باکو")
     )
 
+
+    private fun setupManualIperfServerManager() {
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        manualIperfServers.clear()
+        val raw = prefs.getString("iperf_manual_servers", null)
+        if (!raw.isNullOrBlank()) {
+            try {
+                val arr = JSONArray(raw)
+                for (i in 0 until arr.length()) {
+                    val item = arr.optJSONObject(i) ?: continue
+                    val name = item.optString("name").trim()
+                    val host = item.optString("host").trim()
+                    val port = item.optInt("port", -1)
+                    if (name.isNotBlank() && host.isNotBlank() && port in 1..65535) {
+                        manualIperfServers.add(ManualIperfServer(name, host, port))
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+        if (manualIperfServers.isEmpty()) {
+            val host = prefs.getString("iperf_host", "speedtest.uninet.az") ?: "speedtest.uninet.az"
+            val port = prefs.getInt("iperf_port", 5200).coerceIn(1, 65535)
+            manualIperfServers.add(ManualIperfServer("My first server", host, port))
+            persistManualIperfServers()
+        }
+        selectedManualIperfServer = prefs.getInt("iperf_manual_selected", 0).coerceIn(0, manualIperfServers.lastIndex)
+
+        val container = etIperfPort.parent as? LinearLayout ?: return
+        val index = container.indexOfChild(etIperfPort) + 1
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, (6 * resources.displayMetrics.density).toInt(), 0, 0)
+        }
+        spManualIperfServer = Spinner(this)
+        panel.addView(spManualIperfServer, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, (52 * resources.displayMetrics.density).toInt()
+        ))
+        manualIperfActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val add = Button(this).apply { text = "Add server" }
+        val edit = Button(this).apply { text = "Edit" }
+        val remove = Button(this).apply { text = "Delete" }
+        listOf(add, edit, remove).forEach { button ->
+            manualIperfActions.addView(button, LinearLayout.LayoutParams(0, (46 * resources.displayMetrics.density).toInt(), 1f))
+        }
+        panel.addView(manualIperfActions)
+        container.addView(panel, index)
+
+        add.setOnClickListener { showManualIperfDialog(null) }
+        edit.setOnClickListener {
+            manualIperfServers.getOrNull(selectedManualIperfServer)?.let { showManualIperfDialog(it) }
+        }
+        remove.setOnClickListener { removeManualIperfServer() }
+        spManualIperfServer.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (position !in manualIperfServers.indices) return
+                selectedManualIperfServer = position
+                val selected = manualIperfServers[position]
+                etIperfHost.setText(selected.host)
+                etIperfPort.setText(selected.port.toString())
+                prefs.edit().putInt("iperf_manual_selected", position).apply()
+            }
+        }
+        refreshManualIperfUi()
+    }
+
+    private fun persistManualIperfServers() {
+        val arr = JSONArray()
+        manualIperfServers.forEach { server ->
+            arr.put(JSONObject().put("name", server.name).put("host", server.host).put("port", server.port))
+        }
+        getSharedPreferences("netq", MODE_PRIVATE).edit()
+            .putString("iperf_manual_servers", arr.toString())
+            .putInt("iperf_manual_selected", selectedManualIperfServer.coerceIn(0, maxOf(0, manualIperfServers.lastIndex)))
+            .apply()
+    }
+
+    private fun refreshManualIperfUi() {
+        if (!::spManualIperfServer.isInitialized) return
+        val manual = !cbAutoIperfServer.isChecked
+        spManualIperfServer.visibility = if (manual) View.VISIBLE else View.GONE
+        manualIperfActions.visibility = if (manual) View.VISIBLE else View.GONE
+        etIperfHost.visibility = if (manual) View.GONE else View.VISIBLE
+        etIperfPort.visibility = if (manual) View.GONE else View.VISIBLE
+        spManualIperfServer.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item,
+            manualIperfServers.map { it.name + " — " + it.host + ":" + it.port }
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        if (manualIperfServers.isNotEmpty()) {
+            selectedManualIperfServer = selectedManualIperfServer.coerceIn(0, manualIperfServers.lastIndex)
+            spManualIperfServer.setSelection(selectedManualIperfServer, false)
+            val selected = manualIperfServers[selectedManualIperfServer]
+            etIperfHost.setText(selected.host)
+            etIperfPort.setText(selected.port.toString())
+        }
+    }
+
+    private fun showManualIperfDialog(existing: ManualIperfServer?) {
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 8, 24, 0)
+        }
+        val name = EditText(this).apply { hint = "Server name"; setText(existing?.name ?: "") }
+        val host = EditText(this).apply {
+            hint = "Host / IP"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setText(existing?.host ?: "")
+        }
+        val port = EditText(this).apply {
+            hint = "Port (default 5201)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(existing?.port?.toString() ?: "5201")
+        }
+        form.addView(name); form.addView(host); form.addView(port)
+        AlertDialog.Builder(this)
+            .setTitle(if (existing == null) "Add iperf3 server" else "Edit iperf3 server")
+            .setView(form)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save") { _, _ ->
+                val n = name.text.toString().trim()
+                val h = host.text.toString().trim()
+                val p = port.text.toString().trim().toIntOrNull()
+                if (n.isBlank() || h.isBlank() || p == null || p !in 1..65535) {
+                    Toast.makeText(this, "Enter a name, valid host and port (1–65535).", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                if (existing == null) {
+                    manualIperfServers.add(ManualIperfServer(n, h, p))
+                    selectedManualIperfServer = manualIperfServers.lastIndex
+                } else {
+                    val oldIndex = manualIperfServers.indexOf(existing)
+                    if (oldIndex >= 0) {
+                        manualIperfServers[oldIndex] = ManualIperfServer(n, h, p)
+                        selectedManualIperfServer = oldIndex
+                    }
+                }
+                persistManualIperfServers()
+                refreshManualIperfUi()
+                spManualIperfServer.setSelection(selectedManualIperfServer)
+            }.show()
+    }
+
+    private fun removeManualIperfServer() {
+        if (manualIperfServers.size <= 1) {
+            Toast.makeText(this, "At least one manual server must remain.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val selected = manualIperfServers.getOrNull(selectedManualIperfServer) ?: return
+        AlertDialog.Builder(this)
+            .setTitle("Delete server")
+            .setMessage("Delete " + selected.name + "?")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                manualIperfServers.removeAt(selectedManualIperfServer)
+                selectedManualIperfServer = selectedManualIperfServer.coerceAtMost(manualIperfServers.lastIndex)
+                persistManualIperfServers()
+                refreshManualIperfUi()
+            }.show()
+    }
+
+    private fun manualIperfFailure(error: Exception, label: String): String {
+        if (cbAutoIperfServer.isChecked) return label + ": " + (error.message ?: "Unknown error")
+        val selected = manualIperfServers.getOrNull(selectedManualIperfServer)
+        return label + " failed on selected manual server.\nServer: " +
+            (selected?.host ?: etIperfHost.text.toString()) + ":" +
+            (selected?.port?.toString() ?: etIperfPort.text.toString()) +
+            "\nError: " + (error.message ?: "Unknown error") +
+            "\nManual mode: no other server and no DNS fallback were attempted."
+    }
+
     private suspend fun runIperfUdpWithFallback(bitrate: String, durationSeconds: Int): Net.IperfUdpResult {
         if (!cbAutoIperfServer.isChecked) {
             val (host, port) = iperfServer()
@@ -371,6 +548,12 @@ class MainActivity : AppCompatActivity() {
             errors.joinToString("\n") + "\nحالت خودکار را خاموش کنید و آدرس سرور اختصاصی خود را وارد کنید.")
     }
     private fun iperfServer(): Pair<String, Int> {
+        if (!cbAutoIperfServer.isChecked) {
+            val selected = manualIperfServers.getOrNull(selectedManualIperfServer)
+                ?: throw IllegalStateException("Select a manual iperf3 server.")
+            require(selected.host.isNotBlank() && selected.port in 1..65535) { "Invalid selected server settings." }
+            return selected.host to selected.port
+        }
         val host = etIperfHost.text.toString().trim()
         val port = etIperfPort.text.toString().trim().toIntOrNull()
         require(host.isNotBlank()) { "آدرس سرور iperf3 را وارد کنید." }
@@ -418,12 +601,14 @@ class MainActivity : AppCompatActivity() {
                 val result = runIperfUdpWithFallback("1M", 10)
                 tvUdpLossResult.text = "سرور: ${result.host}:${result.port}\nنرخ هدف: ${result.bitrate}\nبسته‌های گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ واقعی: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps"
             } catch (e: Exception) {
-                tvUdpLossResult.text = try {
-                    val (host, result) = runDnsUdpFallback()
-                    "سرورهای عمومی iperf3 در دسترس نبودند.\n\n" + formatDnsUdpFallback(host, result, "Packet Loss")
-                } catch (fallback: Exception) {
-                    "آزمون ناموفق بود.\niperf3: ${e.message}\nآزمون جایگزین: ${fallback.message}"
-                }
+                tvUdpLossResult.text = if (cbAutoIperfServer.isChecked) {
+                    try {
+                        val (host, result) = runDnsUdpFallback()
+                        "سرورهای عمومی iperf3 در دسترس نبودند.\n\n" + formatDnsUdpFallback(host, result, "Packet Loss")
+                    } catch (fallback: Exception) {
+                        "آزمون ناموفق بود.\niperf3: " + (e.message ?: "خطا") + "\nآزمون جایگزین: " + (fallback.message ?: "خطا")
+                    }
+                } else manualIperfFailure(e, "Packet Loss")
             } finally { button.isEnabled = true }
         }
     }
@@ -437,14 +622,16 @@ class MainActivity : AppCompatActivity() {
                 val result = runIperfUdpWithFallback("10M", 15)
                 tvUploadLossResult.text = "آزمون UDP Upload به سرور ${result.host}:${result.port}\nنرخ هدف ارسال: ${result.bitrate}\nبسته‌های ارسالی/گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss در مسیر Upload: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ دریافت‌شده در سرور: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps\n\nاین آزمون افت بسته‌های UDP ارسالی از گوشی به سرور را می‌سنجد؛ آزمون اشباع هم‌زمان TCP نیست."
             } catch (e: Exception) {
-                tvUploadLossResult.text = try {
-                    val (host, result) = runDnsUdpFallback()
-                    "سرورهای عمومی iperf3 در دسترس نبودند.\n\n" +
-                        formatDnsUdpFallback(host, result, "Upload") +
-                        "\n\nاین نتیجه Packet Loss آپلود را نشان نمی‌دهد؛ برای سنجش یک‌طرفه آپلود باید سرور iperf3 اختصاصی در دسترس باشد."
-                } catch (fallback: Exception) {
-                    "آزمون ناموفق بود.\niperf3: ${e.message}\nآزمون جایگزین: ${fallback.message}"
-                }
+                tvUploadLossResult.text = if (cbAutoIperfServer.isChecked) {
+                    try {
+                        val (host, result) = runDnsUdpFallback()
+                        "سرورهای عمومی iperf3 در دسترس نبودند.\n\n" +
+                            formatDnsUdpFallback(host, result, "Upload") +
+                            "\n\nاین نتیجه Packet Loss آپلود را نشان نمی‌دهد؛ برای سنجش یک‌طرفه آپلود باید سرور iperf3 اختصاصی در دسترس باشد."
+                    } catch (fallback: Exception) {
+                        "آزمون ناموفق بود.\niperf3: " + (e.message ?: "خطا") + "\nآزمون جایگزین: " + (fallback.message ?: "خطا")
+                    }
+                } else manualIperfFailure(e, "UDP Upload")
             } finally { button.isEnabled = true }
         }
     }
