@@ -429,6 +429,16 @@ class MainActivity : AppCompatActivity() {
                 "اشتراک‌گذاری گزارش بررسی" to "Share diagnostic report",
                 "◎  DNS" to "◎  DNS",
                 "▤  Packet Loss" to "▤  Packet Loss",
+                "MONITORING" to "MONITORING",
+                "Network monitoring & diagnostics" to "Network monitoring & diagnostics",
+                "تأخیر پاسخ در طول زمان؛ نقاط قرمز نشان‌دهنده بسته‌های بدون پاسخ هستند." to "Response delay over time; red points indicate packets with no reply.",
+                "نام دلخواه؛ مثلاً BRAS فیض یا BRAS خرازی" to "Custom name, e.g. BRAS Feyz or BRAS Kharazi",
+                "گزارش مرحله‌ای بررسی دسترسی، DNS، CDN و IP در این قسمت نمایش داده می‌شود." to "Layered access, DNS, CDN and IP diagnostic report appears here.",
+                "نتیجه استعلام در این قسمت نمایش داده می‌شود." to "Lookup results appear here.",
+                "ارسال جریان UDP با نرخ هدف 1 Mbps به سرور iperf3 و محاسبه Packet Loss واقعی از گزارش سمت سرور." to "Sends UDP at 1 Mbps to an iperf3 server and reads packet loss from the server report.",
+                "نتیجه تست UDP هنوز ثبت نشده است." to "No UDP test result yet.",
+                "ارسال جریان UDP از گوشی به سرور با نرخ هدف 10 Mbps؛ افت بسته‌های مسیر Upload مستقیماً از گزارش iperf3 خوانده می‌شود." to "Sends UDP from the device at 10 Mbps; upload packet loss is read from the iperf3 report.",
+                "نتیجه تست زیر بار آپلود هنوز ثبت نشده است." to "No upload-load test result yet."
                 "DNS Explorer" to "DNS Explorer",
                 "دامنه؛ مثال example.com" to "Domain, e.g. example.com",
                 "DNS Server انتخابی" to "Selected DNS server",
@@ -466,7 +476,8 @@ class MainActivity : AppCompatActivity() {
                 "نمودار زنده زمان پاسخ DNS · پایش پیوسته" to "Live DNS response-time chart",
                 "آزمون‌های واقعی UDP با موتور iperf3؛ آمار افت بسته و Jitter از گزارش سرور دریافت می‌شود." to "Real UDP tests powered by iperf3. Packet loss and jitter are read from the server report."
             )
-            val root = findViewById<View>(android.R.id.content)
+            val contentRoot = findViewById<View>(android.R.id.content)
+            val root = (contentRoot as? android.view.ViewGroup)?.getChildAt(0) ?: contentRoot
             root.layoutDirection = View.LAYOUT_DIRECTION_LTR
             fun walk(view: View) {
                 if (view is TextView) {
