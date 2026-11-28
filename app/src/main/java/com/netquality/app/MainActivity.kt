@@ -32,6 +32,8 @@ import androidx.appcompat.app.AlertDialog
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -183,6 +185,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val appearancePrefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val languageTag = appearancePrefs.getString("ui_language", "fa") ?: "fa"
+        if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != languageTag) {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(languageTag))
+        }
+        val darkTheme = appearancePrefs.getString("ui_theme", "light") == "dark"
+        AppCompatDelegate.setDefaultNightMode(
+            if (darkTheme) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        )
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -295,6 +306,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSave).setOnClickListener { saveSettings() }
         findViewById<Button>(R.id.btnReset).setOnClickListener { resetSettings() }
         loadSettings()
+        setupAppearanceSettings()
+        applyUiLanguage()
+        applyAppearanceColors()
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
@@ -313,6 +327,185 @@ class MainActivity : AppCompatActivity() {
         try {
             cm.unregisterNetworkCallback(netCallback)
         } catch (_: Exception) {
+        }
+    }
+
+
+    private fun setupAppearanceSettings() {
+        val scroll = panelSettings as? ScrollView ?: return
+        val content = scroll.getChildAt(0) as? LinearLayout ?: return
+        val section = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 14, 16, 14)
+            setBackgroundResource(R.drawable.panel_card)
+        }
+        val title = TextView(this).apply {
+            text = "زبان و ظاهر برنامه / Language & appearance"
+            textSize = 17f
+            setTypeface(typeface, Typeface.BOLD)
+        }
+        val languageLabel = TextView(this).apply {
+            text = "زبان برنامه / App language"
+            textSize = 14f
+            setPadding(0, 12, 0, 4)
+        }
+        val language = Spinner(this)
+        language.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item,
+            listOf("فارسی", "English")).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        val themeLabel = TextView(this).apply {
+            text = "قالب رنگی / Theme"
+            textSize = 14f
+            setPadding(0, 12, 0, 4)
+        }
+        val theme = Spinner(this)
+        theme.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item,
+            listOf("روشن / Light", "تیره / Dark")).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        section.addView(title)
+        section.addView(languageLabel)
+        section.addView(language)
+        section.addView(themeLabel)
+        section.addView(theme)
+        content.addView(section, 0)
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        language.setSelection(if ((prefs.getString("ui_language", "fa") ?: "fa") == "en") 1 else 0)
+        theme.setSelection(if ((prefs.getString("ui_theme", "light") ?: "light") == "dark") 1 else 0)
+        language.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selected = if (position == 1) "en" else "fa"
+                if ((prefs.getString("ui_language", "fa") ?: "fa") != selected) {
+                    prefs.edit().putString("ui_language", selected).apply()
+                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selected))
+                }
+            }
+        }
+        theme.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selected = if (position == 1) "dark" else "light"
+                if ((prefs.getString("ui_theme", "light") ?: "light") != selected) {
+                    prefs.edit().putString("ui_theme", selected).apply()
+                    AppCompatDelegate.setDefaultNightMode(
+                        if (selected == "dark") AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+                    )
+                }
+            }
+        }
+    }
+
+    private fun applyUiLanguage() {
+        if (AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en")) {
+            val translations = mapOf(
+                "تست کامل" to "Full test",
+                "تریس / پلاتر" to "Trace / Plotter",
+                "نمودار" to "Charts",
+                "فیلترینگ" to "Access check",
+                "تنظیمات" to "Settings",
+                "برای شروع، دکمه‌ی تست را بزنید" to "Press Start to begin network tests",
+                "اجرای خودکار پس از اتصال مجدد (اختیاری)" to "Run automatically after reconnect (optional)",
+                "شروع تست" to "Start test",
+                "مقایسه دو تست آخر (قبل و بعد از تغییر اینترنت)" to "Compare the last two tests",
+                "ارسال گزارش" to "Share report",
+                "گزارش‌های ذخیره‌شده" to "Saved reports",
+                "هاست یا IP مقصد" to "Target host or IP",
+                "Trace (ICMP)" to "Trace (ICMP)",
+                "TCP Ping" to "TCP Ping",
+                "پورت (فقط برای حالت TCP)" to "Port (TCP only)",
+                "فاصله به‌روزرسانی نمودار (ثانیه)" to "Chart refresh interval (seconds)",
+                "عدد بین ۱ تا ۶۰ ثانیه" to "Enter a value from 1 to 60 seconds",
+                "شروع" to "Start",
+                "پایش زنده کیفیت ارتباط" to "Live connection quality monitoring",
+                "تشخیص محدودیت دسترسی" to "Access restriction diagnostics",
+                "دامنه‌های آماده" to "Preset domains",
+                "یا دامنه دلخواه مثل example.com" to "Or enter a domain, e.g. example.com",
+                "اپراتوری که همین حالا به اینترنت آن متصل هستید" to "Current internet provider",
+                "شروع بررسی دسترسی" to "Start access check",
+                "نام‌گذاری و مقایسه تست‌ها" to "Name and compare tests",
+                "انتخاب و مقایسه تست‌ها" to "Select and compare tests",
+                "اشتراک‌گذاری گزارش بررسی" to "Share diagnostic report",
+                "DNS Explorer" to "DNS Explorer",
+                "دامنه؛ مثال example.com" to "Domain, e.g. example.com",
+                "DNS Server انتخابی" to "Selected DNS server",
+                "IP سرور DNS مثل 192.168.1.1" to "DNS server IP, e.g. 192.168.1.1",
+                "افزودن" to "Add",
+                "شروع پایش DNS" to "Start DNS monitoring",
+                "Packet Loss Lab" to "Packet Loss Lab",
+                "سرور iperf3 (سرور باید از قبل در حالت Server فعال باشد)" to "iperf3 server (must be running in server mode)",
+                "انتخاب خودکار سرور رایگان و جایگزین در صورت قطعی" to "Auto-select public servers and try alternatives",
+                "در حالت خودکار، سرورها به‌ترتیب بررسی می‌شوند. برای استفاده از سرور خودتان، این گزینه را خاموش کنید." to "Auto mode checks servers in sequence. Turn this off to use your own server.",
+                "آدرس IP یا دامنه سرور" to "Server IP address or hostname",
+                "پورت iperf3 (پیش‌فرض 5201)" to "iperf3 port (default 5201)",
+                "۱. Packet Loss در UDP" to "1. UDP packet loss",
+                "اجرای تست UDP" to "Run UDP test",
+                "۲. افت پروب UDP حین Upload" to "2. UDP probe loss during upload",
+                "اجرای تست UDP زیر بار آپلود" to "Run UDP test during upload",
+                "هر خط یک مورد. خطی که با # شروع شود نادیده گرفته می‌شود." to "One item per line. Lines starting with # are ignored.",
+                "اهداف پینگ (هر خط یک مورد؛ host یا host:port برای حالت TCP)" to "Ping targets (one per line; host or host:port for TCP)",
+                "سرورهای DNS برای تست (هر خط یک IP)" to "DNS servers for testing (one IP per line)",
+                "دامنه‌های تست DNS" to "DNS test domains",
+                "سایت‌های بین‌المللی برای تست دسترسی" to "International websites for access checks",
+                "سایت‌های داخلی برای تست دسترسی" to "Local websites for access checks",
+                "آدرس فایل‌های تست سرعت دانلود" to "Download speed test file URLs",
+                "اجرای تست سرعت دانلود در تست کامل" to "Run download speed test during full test",
+                "در حالت خاموش، تست کامل بدون دانلود فایل حجیم اجرا می‌شود." to "When disabled, the full test skips large downloads.",
+                "اجرای تست آپلود و پایش UDP حین آپلود در تست کامل" to "Run upload test and UDP monitoring during full test",
+                "در صورت فعال‌سازی، تست آپلود به‌همراه پایش UDP اجرا می‌شود." to "When enabled, upload testing runs with UDP monitoring.",
+                "ذخیره" to "Save",
+                "بازگشت به پیش‌فرض" to "Restore defaults",
+                "هر سه نمودار هم‌زمان به‌روزرسانی می‌شوند. فاصله Refresh را از تب «تریس / پلاتر» تنظیم کنید." to "All three charts refresh together. Set the interval in Trace / Plotter.",
+                "آزمون مرحله‌ای DNS، TCP، TLS/SNI، HTTPS و شناسایی CDN؛ هر لایه جداگانه نتیجه‌گیری می‌شود و تشخیص فیلترینگ قطعی نیست." to "Layered DNS, TCP, TLS/SNI, HTTPS and CDN checks. Each layer is assessed separately; results are not definitive proof of filtering.",
+                "نام‌گذاری و مقایسه تست‌ها" to "Name and compare tests",
+                "هر تست با نام و زمان خودش ذخیره می‌شود؛ از فهرست می‌توانید دو یا چند تست را برای مقایسه انتخاب کنید." to "Each test is saved with its name and timestamp. Select multiple tests to compare.",
+                "استعلام مستقیم از DNS انتخاب‌شده، پایش زمان پاسخ و نمایش وضعیت رکوردهای مختلف." to "Query the selected DNS server, monitor response time and inspect record types.",
+                "نمودار زنده زمان پاسخ DNS · پایش پیوسته" to "Live DNS response-time chart",
+                "آزمون‌های واقعی UDP با موتور iperf3؛ آمار افت بسته و Jitter از گزارش سرور دریافت می‌شود." to "Real UDP tests powered by iperf3. Packet loss and jitter are read from the server report."
+            )
+            val root = findViewById<View>(android.R.id.content)
+            fun walk(view: View) {
+                if (view is TextView) {
+                    val original = view.text?.toString()
+                    if (original != null) translations[original]?.let { view.text = it }
+                    if (view is EditText) {
+                        val hint = view.hint?.toString()
+                        if (hint != null) translations[hint]?.let { view.hint = it }
+                    }
+                }
+                if (view is android.view.ViewGroup) {
+                    for (i in 0 until view.childCount) walk(view.getChildAt(i))
+                }
+            }
+            walk(root)
+        }
+    }
+
+    private fun applyAppearanceColors() {
+        val dark = getSharedPreferences("netq", MODE_PRIVATE).getString("ui_theme", "light") == "dark"
+        val root = findViewById<View>(android.R.id.content)
+        root.setBackgroundColor(Color.parseColor(if (dark) "#0B1220" else "#F3F6FA"))
+        val panels = intArrayOf(R.id.panelTest, R.id.panelPlot, R.id.panelSettings, R.id.panelChart, R.id.panelFilter, R.id.panelDns, R.id.panelPacketLoss)
+        panels.forEach { findViewById<View>(it)?.setBackgroundColor(Color.parseColor(if (dark) "#0B1220" else "#F3F6FA")) }
+        val tabBar = findViewById<View>(R.id.tabTest).parent?.parent as? View
+        tabBar?.setBackgroundColor(Color.parseColor(if (dark) "#070E1B" else "#101B35"))
+        if (dark) {
+            val lightText = Color.parseColor("#E6EDF7")
+            val rootView = findViewById<View>(android.R.id.content)
+            fun recolor(view: View) {
+                if (view is TextView) {
+                    view.setTextColor(lightText)
+                    if (view is EditText) view.setHintTextColor(Color.parseColor("#91A4BB"))
+                }
+                if (view is android.view.ViewGroup) {
+                    for (i in 0 until view.childCount) recolor(view.getChildAt(i))
+                }
+            }
+            recolor(rootView)
+            intArrayOf(R.id.tvStatus, R.id.tvLog, R.id.tvFilterResult, R.id.tvDnsLookupResult, R.id.tvUdpLossResult, R.id.tvUploadLossResult, R.id.tvTable, R.id.tvPlotInfo).forEach {
+                findViewById<View>(it)?.setBackgroundColor(Color.parseColor("#162338"))
+            }
         }
     }
 
