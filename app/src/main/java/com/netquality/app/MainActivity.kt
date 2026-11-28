@@ -368,76 +368,93 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkFilterAccess() {
         val presets = listOf("facebook.com", "instagram.com", "youtube.com", "t.me", "x.com", "whatsapp.com", "google.com")
-        val custom = etFilterDomain.text.toString().trim()
-            .removePrefix("https://").removePrefix("http://").substringBefore("/")
-        val domain = if (custom.isNotBlank()) custom else presets.getOrElse(spFilterSite.selectedItemPosition) { presets.first() }
-        if (domain.isBlank() || !domain.contains(".")) {
-            Toast.makeText(this, "یک دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show()
-            return
+        val custom = etFilterDomain.text.toString().trim().removePrefix("https://").removePrefix("http://").substringBefore("/")
+        val domain = (if (custom.isNotBlank()) custom else presets.getOrElse(spFilterSite.selectedItemPosition) { presets.first() }).trim().trimEnd('.').lowercase(Locale.ROOT)
+        if (domain.isBlank() || !domain.contains(".") || domain.any { it.isWhitespace() }) {
+            Toast.makeText(this, "یک دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show(); return
         }
         btnFilterCheck.isEnabled = false
         filterProgress.visibility = View.VISIBLE
-        tvFilterResult.text = "در حال بررسی $domain …\nلطفاً تا پایان آزمون صبر کنید."
-        lifecycleScope.launch {
-            try {
-                val dnsMs = withContext(Dispatchers.IO) {
-                    try {
-                        val start = System.nanoTime()
-                        InetAddress.getAllByName(domain)
-                        (System.nanoTime() - start) / 1_000_000
-                    } catch (_: Exception) { null }
+        val steps = linkedMapOf("DNS سیستم" to "در انتظار", "DNS جایگزین 1.1.1.1" to "در انتظار", "DNS جایگزین 8.8.8.8" to "در انتظار", "TCP/443 مقصد" to "در انتظار", "TCP/443 کنترلی" to "در انتظار", "TLS با SNI" to "در انتظار", "HTTPS" to "در انتظار", "CDN و اطلاعات IP" to "در انتظار")
+        fun renderProgress() {
+            tvFilterResult.text = buildString {
+                append("بررسی مرحله‌ای دامنه: $domain\n")
+                append("✓ یعنی آزمون همان لایه موفق شده است؛ موفقیت یک لایه سلامت همه لایه‌ها را ثابت نمی‌کند.\n\n")
+                steps.forEach { (name, status) ->
+                    val mark = when (status) { "موفق" -> "✓"; "ناموفق" -> "✕"; "در حال اجرا" -> "…"; else -> "○" }
+                    append("$mark  $name — $status\n")
                 }
-                val targetTcp = withContext(Dispatchers.IO) { Net.tcpOnce(domain, 443, 5000) }
-                val controlTcp = withContext(Dispatchers.IO) { Net.tcpOnce("1.1.1.1", 443, 5000) }
-                val https = withContext(Dispatchers.IO) { Net.httpCheck("https://$domain", false) }
-                val infra = withContext(Dispatchers.IO) { Net.inspectSiteInfrastructure(domain) }
-                val verdict = when {
-                    https.code != null && https.code in 200..399 -> "قابل دسترس"
-                    dnsMs == null && controlTcp != null -> "احتمال اختلال یا محدودیت DNS"
-                    targetTcp == null && controlTcp != null -> "احتمال محدودیت اختصاصی مقصد یا مسیر دسترسی"
-                    targetTcp != null && https.code == null -> "TCP برقرار است؛ مشکل در TLS یا لایه HTTPS محتمل است"
-                    https.code == 403 || https.code == 451 -> "پاسخ محدودکننده HTTP دریافت شد؛ علت می‌تواند سیاست سرور یا فیلترینگ باشد"
-                    else -> "نتیجه نامشخص؛ شواهد برای تشخیص فیلترینگ کافی نیست"
-                }
-                val colorHint = when {
-                    https.code != null && https.code in 200..399 -> "وضعیت: قابل دسترس"
-                    dnsMs == null || targetTcp == null -> "وضعیت: نیازمند بررسی"
-                    else -> "وضعیت: اختلال در لایه بالاتر"
-                }
-                tvFilterResult.text = buildString {
-                    append("دامنه: $domain\n\n")
-                    append("نتیجه: $verdict\n\n")
-                    append("DNS: ").append(dnsMs?.let { "موفق (${it}ms)" } ?: "ناموفق").append("\n")
-                    append("TCP/443 مقصد: ").append(targetTcp?.let { "موفق (${f0(it)}ms)" } ?: "ناموفق").append("\n")
-                    append("TCP/443 مقصد کنترلی 1.1.1.1: ").append(controlTcp?.let { "موفق (${f0(it)}ms)" } ?: "ناموفق").append("\n")
-                    append("HTTPS: ").append(https.code?.toString() ?: "بدون پاسخ (${https.err ?: "خطا"})").append("\n")
-                    append("زمان پاسخ HTTPS: ${https.ms}ms\n\n")
-                    append("── اطلاعات IP و CDN ──\n")
-                    append("IPهای پاسخ DNS: ").append(infra.ips.joinToString(", ").ifBlank { "دریافت نشد" }).append("\n")
-                    append("CDN / شبکه محافظ: ${infra.cdn}\n")
-                    infra.serverHeader?.let { append("Server header: $it\n") }
-                    infra.org?.let { append("سازمان/شبکه IP: $it\n") }
-                    infra.country?.let { append("کشور تخمینی IP: $it\n") }
-                    infra.city?.let { append("شهر تخمینی IP: $it\n") }
-                    infra.cfRay?.let { append("CF-Ray: $it\n") }
-                    infra.colo?.let { append("Cloudflare PoP (کد مرکز پاسخ‌گو): $it\n") }
-                    append(infra.geoNote ?: "").append("\n\n")
-                    append("تفسیر: $colorHint\n\n")
-                    append("توجه: موفق بودن Ping یا TCP به معنی نبود فیلترینگ نیست. این آزمون فقط از اتصال فعلی گوشی استفاده می‌کند. برای مقایسه، آن را روی اینترنت مخابرات، همراه اول و سایر اپراتورها جداگانه اجرا کنید. نتیجه قطعی فیلترینگ فقط با مقایسه چند مسیر و بررسی دقیق‌تر قابل اعلام است.")
-                    append("\n\nاپراتور ثبت‌شده: ").append(spFilterOperator.selectedItem.toString())
-                }
-                getSharedPreferences("netq", MODE_PRIVATE).edit()
-                    .putString("filter_result_${spFilterOperator.selectedItem}", tvFilterResult.text.toString())
-                    .apply()
-            } catch (e: Exception) {
-                tvFilterResult.text = "خطا در اجرای آزمون: ${e.message ?: e.javaClass.simpleName}"
-            } finally {
-                filterProgress.visibility = View.GONE
-                btnFilterCheck.isEnabled = true
             }
         }
+        fun setStep(name: String, status: String) { steps[name] = status; renderProgress() }
+        renderProgress()
+        lifecycleScope.launch {
+            try {
+                setStep("DNS سیستم", "در حال اجرا")
+                val dnsMs = withContext(Dispatchers.IO) { try { val t = System.nanoTime(); InetAddress.getAllByName(domain); (System.nanoTime() - t) / 1_000_000 } catch (_: Exception) { null } }
+                setStep("DNS سیستم", if (dnsMs != null) "موفق" else "ناموفق")
+                setStep("DNS جایگزین 1.1.1.1", "در حال اجرا")
+                val dnsCf = withContext(Dispatchers.IO) { Net.dnsQuery("1.1.1.1", domain, 3000) }
+                setStep("DNS جایگزین 1.1.1.1", if (dnsCf != null && dnsCf >= 0) "موفق" else "ناموفق")
+                setStep("DNS جایگزین 8.8.8.8", "در حال اجرا")
+                val dnsGoogle = withContext(Dispatchers.IO) { Net.dnsQuery("8.8.8.8", domain, 3000) }
+                setStep("DNS جایگزین 8.8.8.8", if (dnsGoogle != null && dnsGoogle >= 0) "موفق" else "ناموفق")
+                setStep("TCP/443 مقصد", "در حال اجرا")
+                val tcp = withContext(Dispatchers.IO) { Net.tcpOnce(domain, 443, 5000) }
+                setStep("TCP/443 مقصد", if (tcp != null) "موفق" else "ناموفق")
+                setStep("TCP/443 کنترلی", "در حال اجرا")
+                val control = withContext(Dispatchers.IO) { Net.tcpOnce("1.1.1.1", 443, 5000) }
+                setStep("TCP/443 کنترلی", if (control != null) "موفق" else "ناموفق")
+                setStep("TLS با SNI", "در حال اجرا")
+                val tls = withContext(Dispatchers.IO) { Net.tlsOnce(domain, 6000) }
+                setStep("TLS با SNI", if (tls != null) "موفق" else "ناموفق")
+                setStep("HTTPS", "در حال اجرا")
+                val https = withContext(Dispatchers.IO) { Net.httpCheck("https://$domain", false) }
+                setStep("HTTPS", if (https.code != null) "موفق" else "ناموفق")
+                setStep("CDN و اطلاعات IP", "در حال اجرا")
+                val infra = withContext(Dispatchers.IO) { Net.inspectSiteInfrastructure(domain) }
+                setStep("CDN و اطلاعات IP", if (infra.ips.isNotEmpty() || infra.cname != null) "موفق" else "نامشخص")
+                val verdict = when {
+                    https.code != null && https.code in 200..399 -> "سایت از مسیر فعلی قابل دسترس است"
+                    dnsMs == null && (dnsCf == null || dnsCf < 0) && (dnsGoogle == null || dnsGoogle < 0) && control != null -> "احتمال اختلال DNS؛ پاسخ DNS سیستم و دو DNS جایگزین دریافت نشد"
+                    tcp == null && control != null -> "احتمال محدودیت یا اختلال اختصاصی در مسیر مقصد؛ اتصال کنترلی برقرار است"
+                    tcp != null && tls == null -> "TCP برقرار است اما TLS/SNI ناموفق است؛ احتمال اختلال TLS، گواهی یا بازرسی مسیر"
+                    https.code == 403 || https.code == 451 -> "سرور پاسخ HTTP محدودکننده داده؛ به‌تنهایی اثبات فیلترینگ شبکه نیست"
+                    else -> "نتیجه نامشخص؛ شواهد کافی برای اعلام فیلترینگ قطعی وجود ندارد"
+                }
+                val report = buildString {
+                    append("گزارش مرحله‌ای دسترسی\nدامنه: $domain\nنتیجه: $verdict\n\nوضعیت آزمون‌ها:\n")
+                    steps.forEach { (name, status) -> append((if (status == "موفق") "✓" else if (status == "ناموفق") "✕" else "—") + "  $name: $status\n") }
+                    append("\nDNS سیستم: ").append(dnsMs?.let { "موفق ($it ms)" } ?: "ناموفق").append("\n")
+                    append("DNS 1.1.1.1: ").append(dnsCf?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
+                    append("DNS 8.8.8.8: ").append(dnsGoogle?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
+                    append("TCP/443 مقصد: ").append(tcp?.let { "موفق (${f0(it)} ms)" } ?: "ناموفق").append("\n")
+                    append("TCP کنترلی 1.1.1.1: ").append(control?.let { "موفق (${f0(it)} ms)" } ?: "ناموفق").append("\n")
+                    append("TLS/SNI: ").append(tls?.let { "موفق ($it ms)" } ?: "ناموفق").append("\n")
+                    append("HTTPS: ").append(https.code?.toString() ?: "بدون پاسخ (${https.err ?: "خطا"})").append(" | زمان: ${https.ms} ms\n")
+                    append("\n── اطلاعات CDN و IP ──\nCDN: ${infra.cdn}\n")
+                    append("IPهای قابل مشاهده: ").append(infra.ips.joinToString(", ").ifBlank { "دریافت نشد" }).append("\n")
+                    infra.cname?.let { append("CNAME: $it\n") }
+                    infra.asn?.let { append("ASN: $it\n") }
+                    infra.org?.let { append("مالک شبکه: $it\n") }
+                    infra.country?.let { append("کشور تقریبی IP لبه: $it\n") }
+                    infra.city?.let { append("شهر تقریبی IP لبه: $it\n") }
+                    infra.serverHeader?.let { append("Server: $it\n") }
+                    infra.cfRay?.let { append("CF-Ray: $it\n") }
+                    infra.colo?.let { append("Cloudflare PoP: $it\n") }
+                    if (infra.evidence.isNotEmpty()) { append("شواهد CDN:\n"); infra.evidence.forEach { append("• $it\n") } }
+                    append("\n${infra.geoNote ?: ""}\n")
+                    append("\nموفقیت DNS فقط پاسخ‌گویی DNS را نشان می‌دهد و به‌تنهایی نبود فیلترینگ در TCP، TLS یا HTTP را ثابت نمی‌کند.")
+                    append("\nDNSهای جایگزین از همین اتصال آزمایش شده‌اند و ممکن است دسترسی مستقیم به آن‌ها مسدود باشد.")
+                    append("\nاپراتور ثبت‌شده: ").append(spFilterOperator.selectedItem.toString())
+                }
+                tvFilterResult.text = report
+                getSharedPreferences("netq", MODE_PRIVATE).edit().putString("filter_result_${spFilterOperator.selectedItem}", report).apply()
+            } catch (e: Exception) {
+                tvFilterResult.text = "خطا در اجرای آزمون: ${e.message ?: e.javaClass.simpleName}"
+            } finally { filterProgress.visibility = View.GONE; btnFilterCheck.isEnabled = true }
+        }
     }
-
 
     private fun refreshDnsServers() {
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
