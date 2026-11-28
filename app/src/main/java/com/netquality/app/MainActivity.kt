@@ -605,27 +605,47 @@ class MainActivity : AppCompatActivity() {
     private fun compareFilterOperators() {
         val a = spFilterCompareA.selectedItem.toString()
         val b = spFilterCompareB.selectedItem.toString()
-        if (a == b) {
-            Toast.makeText(this, "دو اپراتور متفاوت انتخاب کنید", Toast.LENGTH_SHORT).show()
-            return
-        }
+        if (a == b) { Toast.makeText(this, "دو اپراتور متفاوت انتخاب کنید", Toast.LENGTH_SHORT).show(); return }
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
         val ra = prefs.getString("filter_result_$a", null)
         val rb = prefs.getString("filter_result_$b", null)
-        val report = buildString {
-            append("مقایسه بررسی دسترسی دو اپراتور\n\n")
-            append("اپراتور اول: $a\n")
-            append(ra ?: "برای این اپراتور هنوز تستی ذخیره نشده است.")
-            append("\n\n────────────────────\n\n")
-            append("اپراتور دوم: $b\n")
-            append(rb ?: "برای این اپراتور هنوز تستی ذخیره نشده است.")
-            append("\n\nتوجه: تست‌ها باید روی اتصال واقعی همان اپراتور اجرا شده باشند؛ انتخاب نام اپراتور به‌تنهایی مسیر اینترنت را تغییر نمی‌دهد.")
+        if (ra == null || rb == null) {
+            val missing = listOfNotNull(if (ra == null) a else null, if (rb == null) b else null).joinToString(" و ")
+            AlertDialog.Builder(this).setTitle("گزارش کافی نیست").setMessage("برای $missing هنوز آزمون ذخیره‌شده وجود ندارد. ابتدا روی اتصال واقعی هر اپراتور یک تست کامل اجرا کنید.")
+                .setPositiveButton("متوجه شدم", null).show(); return
         }
-        AlertDialog.Builder(this).setTitle("مقایسه اپراتورها").setMessage(report)
+        fun value(report: String, prefix: String): String = report.lineSequence().firstOrNull { it.startsWith(prefix) }?.substringAfter(":")?.trim() ?: "ثبت نشده"
+        val rows = listOf(
+            "نتیجه کلی" to Pair(value(ra, "نتیجه:"), value(rb, "نتیجه:")),
+            "DNS سیستم" to Pair(value(ra, "DNS سیستم:"), value(rb, "DNS سیستم:")),
+            "DNS 1.1.1.1" to Pair(value(ra, "DNS 1.1.1.1:"), value(rb, "DNS 1.1.1.1:")),
+            "DNS 8.8.8.8" to Pair(value(ra, "DNS 8.8.8.8:"), value(rb, "DNS 8.8.8.8:")),
+            "TCP/443 مقصد" to Pair(value(ra, "TCP/443 مقصد:"), value(rb, "TCP/443 مقصد:")),
+            "TLS/SNI" to Pair(value(ra, "TLS/SNI:"), value(rb, "TLS/SNI:")),
+            "HTTPS" to Pair(value(ra, "HTTPS:"), value(rb, "HTTPS:")),
+            "CDN" to Pair(value(ra, "CDN:"), value(rb, "CDN:")),
+            "IP قابل مشاهده" to Pair(value(ra, "IPهای قابل مشاهده:"), value(rb, "IPهای قابل مشاهده:")),
+            "ASN" to Pair(value(ra, "ASN:"), value(rb, "ASN:")),
+            "کشور تقریبی IP" to Pair(value(ra, "کشور تقریبی IP لبه:"), value(rb, "کشور تقریبی IP لبه:"))
+        )
+        val different = rows.filter { it.second.first != it.second.second }
+        val report = buildString {
+            append("مقایسه دو اتصال واقعی\nدامنه: ").append(Regex("دامنه: ([^\\n]+)").find(ra)?.groupValues?.get(1) ?: "نامشخص").append("\n\n")
+            append("شاخص‌های متفاوت: ${different.size} از ${rows.size}\n\n")
+            rows.forEach { (label, pair) ->
+                val changed = pair.first != pair.second
+                append(if (changed) "◆ " else "✓ ").append(label).append("\n")
+                append("  $a: ${pair.first}\n")
+                append("  $b: ${pair.second}\n\n")
+            }
+            append("نکته: فقط شاخص‌های دارای مقدار متفاوت، تفاوت مشاهده‌شده‌اند. انتخاب نام اپراتور مسیر اینترنت را تغییر نمی‌دهد؛ هر گزارش باید هنگام اتصال واقعی به همان اپراتور ثبت شده باشد.")
+        }
+        val view = TextView(this).apply { text = report; textSize = 13f; setTextColor(0xFF243B53.toInt()); setPadding(24, 12, 24, 8); setLineSpacing(5f, 1f) }
+        val scroll = ScrollView(this).apply { addView(view); isFillViewport = true }
+        AlertDialog.Builder(this).setTitle("مقایسه $a و $b").setView(scroll)
             .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
             .setNegativeButton("بستن", null).show()
     }
-
     private fun share(text: String) {
         if (text.isBlank()) return
         val i = Intent(Intent.ACTION_SEND).apply {
