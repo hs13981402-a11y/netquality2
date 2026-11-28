@@ -545,7 +545,11 @@ class MainActivity : AppCompatActivity() {
     )
 
 
+    private fun isEnglishUi(): Boolean =
+        AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en")
+
     private fun setupManualIperfServerManager() {
+        val english = isEnglishUi()
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
         manualIperfServers.clear()
         val raw = prefs.getString("iperf_manual_servers", null)
@@ -582,9 +586,9 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.MATCH_PARENT, (52 * resources.displayMetrics.density).toInt()
         ))
         manualIperfActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val add = Button(this).apply { text = "Add server" }
-        val edit = Button(this).apply { text = "Edit" }
-        val remove = Button(this).apply { text = "Delete" }
+        val add = Button(this).apply { text = if (english) "Add server" else "افزودن سرور" }
+        val edit = Button(this).apply { text = if (english) "Edit" else "ویرایش" }
+        val remove = Button(this).apply { text = if (english) "Delete" else "حذف" }
         listOf(add, edit, remove).forEach { button ->
             manualIperfActions.addView(button, LinearLayout.LayoutParams(0, (46 * resources.displayMetrics.density).toInt(), 1f))
         }
@@ -642,32 +646,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showManualIperfDialog(existing: ManualIperfServer?) {
+        val english = isEnglishUi()
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(24, 8, 24, 0)
         }
-        val name = EditText(this).apply { hint = "Server name"; setText(existing?.name ?: "") }
+        val name = EditText(this).apply { hint = if (english) "Server name" else "نام سرور"; setText(existing?.name ?: "") }
         val host = EditText(this).apply {
-            hint = "Host / IP"
+            hint = if (english) "Host / IP" else "هاست یا IP"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
             setText(existing?.host ?: "")
         }
         val port = EditText(this).apply {
-            hint = "Port (default 5201)"
+            hint = if (english) "Port (default 5201)" else "پورت (پیش‌فرض 5201)"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setText(existing?.port?.toString() ?: "5201")
         }
         form.addView(name); form.addView(host); form.addView(port)
         AlertDialog.Builder(this)
-            .setTitle(if (existing == null) "Add iperf3 server" else "Edit iperf3 server")
+            .setTitle(if (existing == null) { if (english) "Add iperf3 server" else "افزودن سرور iperf3" } else { if (english) "Edit iperf3 server" else "ویرایش سرور iperf3" })
             .setView(form)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save") { _, _ ->
+            .setNegativeButton(if (english) "Cancel" else "انصراف", null)
+            .setPositiveButton(if (english) "Save" else "ذخیره") { _, _ ->
                 val n = name.text.toString().trim()
                 val h = host.text.toString().trim()
                 val p = port.text.toString().trim().toIntOrNull()
                 if (n.isBlank() || h.isBlank() || p == null || p !in 1..65535) {
-                    Toast.makeText(this, "Enter a name, valid host and port (1–65535).", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, if (english) "Enter a name, valid host and port (1–65535)." else "نام، هاست و پورت معتبر (۱ تا ۶۵۵۳۵) وارد کنید.", Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
                 if (existing == null) {
@@ -693,10 +698,10 @@ class MainActivity : AppCompatActivity() {
         }
         val selected = manualIperfServers.getOrNull(selectedManualIperfServer) ?: return
         AlertDialog.Builder(this)
-            .setTitle("Delete server")
-            .setMessage("Delete " + selected.name + "?")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Delete") { _, _ ->
+            .setTitle(if (isEnglishUi()) "Delete server" else "حذف سرور")
+            .setMessage(if (isEnglishUi()) "Delete " + selected.name + "?" else "سرور «" + selected.name + "» حذف شود؟")
+            .setNegativeButton(if (isEnglishUi()) "Cancel" else "انصراف", null)
+            .setPositiveButton(if (isEnglishUi()) "Delete" else "حذف") { _, _ ->
                 manualIperfServers.removeAt(selectedManualIperfServer)
                 selectedManualIperfServer = selectedManualIperfServer.coerceAtMost(manualIperfServers.lastIndex)
                 persistManualIperfServers()
