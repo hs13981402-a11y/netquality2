@@ -582,13 +582,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPanel(i: Int) {
-        panelTest.visibility = if (i == 0) View.VISIBLE else View.GONE
-        panelPlot.visibility = if (i == 1) View.VISIBLE else View.GONE
-        panelSettings.visibility = if (i == 2) View.VISIBLE else View.GONE
-        panelChart.visibility = if (i == 3) View.VISIBLE else View.GONE
-        panelFilter.visibility = if (i == 4) View.VISIBLE else View.GONE
-        panelDns.visibility = if (i == 5) View.VISIBLE else View.GONE
-        panelPacketLoss.visibility = if (i == 6) View.VISIBLE else View.GONE
+        val panels = arrayOf(panelTest, panelPlot, panelSettings, panelChart, panelFilter, panelDns, panelPacketLoss)
+        panels.forEachIndexed { index, panel ->
+            if (index == i) {
+                panel.alpha = 0f
+                panel.visibility = View.VISIBLE
+                panel.animate().alpha(1f).setDuration(160L).start()
+            } else {
+                panel.animate().cancel()
+                panel.visibility = View.GONE
+                panel.alpha = 1f
+            }
+        }
+        getSharedPreferences("netq", MODE_PRIVATE).edit().putInt("last_panel", i).apply()
 
         val dark = isDarkTheme()
         val tabIds = intArrayOf(R.id.tabTest, R.id.tabPlot, R.id.tabSettings, R.id.tabChart,
@@ -612,6 +618,15 @@ class MainActivity : AppCompatActivity() {
                 ))
                 alpha = 1f
             }
+        }
+        // Keep the active tab fully visible when the navigation strip is horizontally scrolled.
+        val activeTab = findViewById<Button>(tabIds[i])
+        activeTab.post {
+            val horizontal = (activeTab.parent?.parent as? android.widget.HorizontalScrollView)
+            horizontal?.smoothScrollTo(
+                (activeTab.left - (horizontal.width - activeTab.width) / 2).coerceAtLeast(0),
+                0
+            )
         }
     }
 
