@@ -554,27 +554,37 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="18dp"
-                    android:text="مقایسه دو اپراتور"
+                    android:text="نام‌گذاری و مقایسه تست‌ها"
                     android:textColor="#17324D"
                     android:textSize="17sp"
                     android:textStyle="bold" />
-                <Spinner
-                    android:id="@+id/spFilterCompareA"
+                <EditText
+                    android:id="@+id/etFilterTestName"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:entries="@array/operator_names" />
-                <Spinner
-                    android:id="@+id/spFilterCompareB"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:hint="نام دلخواه؛ مثلاً BRAS فیض یا BRAS خرازی"
+                    android:singleLine="true"
+                    android:padding="12dp"
+                    android:background="@drawable/input_card"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6" />
+                <TextView
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:entries="@array/operator_names" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="هر تست با نام و زمان خودش ذخیره می‌شود؛ از فهرست می‌توانید دو یا چند تست را برای مقایسه انتخاب کنید."
+                    android:textColor="#607080"
+                    android:textSize="12sp" />
                 <Button
                     android:id="@+id/btnCompareFilter"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="نمایش مقایسه اپراتورها"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="10dp"
+                    android:text="انتخاب و مقایسه تست‌ها"
                     android:backgroundTint="#17324D"
-                    android:textColor="#FFFFFF" />
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
                 <Button
                     android:id="@+id/btnShareFilter"
                     android:layout_width="match_parent"
@@ -588,7 +598,7 @@
                     android:layout_marginTop="16dp"
                     android:padding="18dp"
                     android:background="@drawable/report_card"
-                    android:text="گزارش استعلام DNS در این قسمت نمایش داده می‌شود. برای مقایسه اپراتورها، همین تست را روی هر اتصال جداگانه اجرا کنید."
+                    android:text="گزارش مرحله‌ای بررسی دسترسی، DNS، CDN و IP در این قسمت نمایش داده می‌شود."
                     android:textColor="#243B53"
                     android:textSize="15sp"
                     android:lineSpacingExtra="7dp"
