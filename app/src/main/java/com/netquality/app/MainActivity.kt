@@ -400,11 +400,11 @@ class MainActivity : AppCompatActivity() {
     private fun applyUiLanguage() {
         if (AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en")) {
             val translations = mapOf(
-                "تست کامل" to "Full test",
-                "تریس / پلاتر" to "Trace / Plotter",
-                "نمودار" to "Charts",
-                "فیلترینگ" to "Access check",
-                "تنظیمات" to "Settings",
+                "◉  تست کامل" to "◉  Full test",
+                "⌁  تریس / پلاتر" to "⌁  Trace / Plotter",
+                "▥  نمودار" to "▥  Charts",
+                "◈  فیلترینگ" to "◈  Access check",
+                "⚙  تنظیمات" to "⚙  Settings",
                 "برای شروع، دکمه‌ی تست را بزنید" to "Press Start to begin network tests",
                 "اجرای خودکار پس از اتصال مجدد (اختیاری)" to "Run automatically after reconnect (optional)",
                 "شروع تست" to "Start test",
@@ -427,6 +427,8 @@ class MainActivity : AppCompatActivity() {
                 "نام‌گذاری و مقایسه تست‌ها" to "Name and compare tests",
                 "انتخاب و مقایسه تست‌ها" to "Select and compare tests",
                 "اشتراک‌گذاری گزارش بررسی" to "Share diagnostic report",
+                "◎  DNS" to "◎  DNS",
+                "▤  Packet Loss" to "▤  Packet Loss",
                 "DNS Explorer" to "DNS Explorer",
                 "دامنه؛ مثال example.com" to "Domain, e.g. example.com",
                 "DNS Server انتخابی" to "Selected DNS server",
