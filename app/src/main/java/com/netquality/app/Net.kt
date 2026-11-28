@@ -9,6 +9,9 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URL
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 import org.json.JSONObject
 import java.util.Random
 import kotlin.math.abs
@@ -182,6 +185,22 @@ object Net {
         }
     }
 
+
+    /** TLS handshake with explicit SNI; null means handshake/connection failed. */
+    fun tlsOnce(domain: String, timeoutMs: Int = 6000): Long? {
+        return try {
+            (SSLSocketFactory.getDefault().createSocket() as SSLSocket).use { socket ->
+                socket.connect(InetSocketAddress(domain, 443), timeoutMs)
+                socket.soTimeout = timeoutMs
+                socket.sslParameters = socket.sslParameters.apply {
+                    serverNames = listOf(SNIHostName(domain))
+                }
+                val started = System.nanoTime()
+                socket.startHandshake()
+                (System.nanoTime() - started) / 1_000_000
+            }
+        } catch (_: Exception) { null }
+    }
 
     data class SiteInfra(
         val ips: List<String>, val cdn: String, val serverHeader: String?,
