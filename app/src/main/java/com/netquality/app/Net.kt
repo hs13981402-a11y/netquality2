@@ -35,8 +35,11 @@ object Net {
 
     data class HopProbe(val ip: String?, val rtt: Double?, val reached: Boolean)
 
-    data class UdpLossResult(val sent: Int, val received: Int) {
+    data class UdpLossResult(val sent: Int, val received: Int, val latenciesMs: List<Double> = emptyList()) {
         val loss: Double get() = if (sent == 0) 100.0 else (sent - received) * 100.0 / sent
+        val avgRttMs: Double get() = if (latenciesMs.isEmpty()) 0.0 else latenciesMs.average()
+        val jitterMs: Double get() = if (latenciesMs.size < 2) 0.0 else
+            latenciesMs.zipWithNext().map { (a, b) -> kotlin.math.abs(b - a) }.average()
     }
 
     // ───────── پینگ ─────────
@@ -333,7 +336,8 @@ object Net {
     data class IperfUdpResult(
         val host: String, val port: Int, val bitrate: String,
         val sentPackets: Long, val lostPackets: Long, val lossPercent: Double,
-        val jitterMs: Double, val throughputMbps: Double
+        val jitterMs: Double, val throughputMbps: Double,
+        val mode: String = "iperf3", val avgRttMs: Double = 0.0
     )
 
     fun iperfUdpTest(context: android.content.Context, host: String, port: Int, bitrate: String, durationSeconds: Int = 10): IperfUdpResult {
@@ -373,14 +377,15 @@ object Net {
         return IperfUdpResult(host, port, bitrate, sent, lost, loss, jitter, mbps)
     }
 
-    fun udpLossTest(server: String, domain: String, count: Int): UdpLossResult {
-        var received = 0
+    /** Measures UDP/53 DNS request-response success, RTT and jitter (not arbitrary UDP payload loss). */
+    fun udpLossTest(server: String, domain: String, count: Int, timeoutMs: Int = 1000): UdpLossResult {
+        val latencies = ArrayList<Double>()
         repeat(count) {
-            val result = dnsQuery(server, domain, 1200)
-            if (result != null && result >= 0) received++
-            if (it < count - 1) Thread.sleep(120)
+            val result = dnsQuery(server, domain, timeoutMs)
+            if (result != null && result >= 0) latencies.add(result.toDouble())
+            if (it < count - 1) Thread.sleep(80)
         }
-        return UdpLossResult(count, received)
+        return UdpLossResult(count, latencies.size, latencies)
     }
 
     fun uploadTest(): Double? {
