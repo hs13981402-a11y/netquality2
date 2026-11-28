@@ -782,36 +782,6 @@
                     android:text="در حالت خودکار، سرورها به‌ترتیب بررسی می‌شوند. برای استفاده از سرور خودتان، این گزینه را خاموش کنید."
                     android:textColor="#607080"
                     android:textSize="12sp" />
-                <Spinner
-                    android:id="@+id/spSavedIperfServers"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/input_card"
-                    android:padding="8dp" />
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="6dp">
-                    <Button
-                        android:id="@+id/btnSaveIperfServer"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="ذخیره سرور فعلی"
-                        android:textColor="#FFFFFF"
-                        android:backgroundTint="#0E9F9A" />
-                    <Button
-                        android:id="@+id/btnManageIperfServers"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="6dp"
-                        android:text="مدیریت سرورها"
-                        android:textColor="#FFFFFF"
-                        android:backgroundTint="#52677F" />
-                </LinearLayout>
                 <EditText
                     android:id="@+id/etIperfHost"
                     android:layout_width="match_parent"
