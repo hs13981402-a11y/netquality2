@@ -438,7 +438,7 @@ class MainActivity : AppCompatActivity() {
                 "ارسال جریان UDP با نرخ هدف 1 Mbps به سرور iperf3 و محاسبه Packet Loss واقعی از گزارش سمت سرور." to "Sends UDP at 1 Mbps to an iperf3 server and reads packet loss from the server report.",
                 "نتیجه تست UDP هنوز ثبت نشده است." to "No UDP test result yet.",
                 "ارسال جریان UDP از گوشی به سرور با نرخ هدف 10 Mbps؛ افت بسته‌های مسیر Upload مستقیماً از گزارش iperf3 خوانده می‌شود." to "Sends UDP from the device at 10 Mbps; upload packet loss is read from the iperf3 report.",
-                "نتیجه تست زیر بار آپلود هنوز ثبت نشده است." to "No upload-load test result yet."
+                "نتیجه تست زیر بار آپلود هنوز ثبت نشده است." to "No upload-load test result yet.",
                 "DNS Explorer" to "DNS Explorer",
                 "دامنه؛ مثال example.com" to "Domain, e.g. example.com",
                 "DNS Server انتخابی" to "Selected DNS server",
