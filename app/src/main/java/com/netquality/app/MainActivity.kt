@@ -460,10 +460,10 @@ class MainActivity : AppCompatActivity() {
                 setStep("HTTPS", if (https.code != null) "موفق" else "ناموفق")
                 setStep("CDN و اطلاعات IP", "در حال اجرا")
                 val infra = withContext(Dispatchers.IO) { Net.inspectSiteInfrastructure(domain) }
-                setStep("CDN و اطلاعات IP", if (infra.ips.isNotEmpty() || infra.cname != null) "موفق" else "نامشخص")
+                setStep("CDN و اطلاعات IP", if (infra.ips.isNotEmpty() || infra.cname != null || infra.evidence.isNotEmpty()) "موفق" else "نامشخص")
                 val verdict = when {
                     https.code != null && https.code in 200..399 -> "سایت از مسیر فعلی قابل دسترس است"
-                    listOf(dnsMs, dnsCf, dnsGoogle, dnsMokhaberat, dnsInfrastructure).all { it == null || it < 0 } && control != null -> "احتمال اختلال DNS؛ پاسخ DNS سیستم و دو DNS جایگزین دریافت نشد"
+                    listOf(dnsMs, dnsCf, dnsGoogle, dnsMokhaberat, dnsInfrastructure).all { it == null || it < 0 } && control != null -> "احتمال اختلال DNS؛ هیچ‌یک از DNSهای آزمایش‌شده پاسخ معتبر ندادند"
                     tcp == null && control != null -> "احتمال محدودیت یا اختلال اختصاصی در مسیر مقصد؛ اتصال کنترلی برقرار است"
                     tcp != null && tls == null -> "TCP برقرار است اما TLS/SNI ناموفق است؛ احتمال اختلال TLS، گواهی یا بازرسی مسیر"
                     https.code == 403 || https.code == 451 -> "سرور پاسخ HTTP محدودکننده داده؛ به‌تنهایی اثبات فیلترینگ شبکه نیست"
