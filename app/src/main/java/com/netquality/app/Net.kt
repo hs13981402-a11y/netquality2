@@ -225,104 +225,98 @@ object Net {
         } catch (_: Exception) { emptyList() }
     }
 
-    /** تشخیص CDN بر اساس DNS، هدر HTTP و ASN؛ موقعیت فقط مربوط به IP لبه قابل مشاهده است. */
+    /** Broader CDN fingerprinting using DNS, HTTP headers and ASN/organization evidence. */
     fun inspectSiteInfrastructure(domain: String): SiteInfra {
-        val ips = try {
-            InetAddress.getAllByName(domain).mapNotNull { it.hostAddress }.distinct()
-        } catch (_: Exception) { emptyList() }
-        val cname = dohLookup(domain, 5).firstOrNull()
+        val ips = try { InetAddress.getAllByName(domain).mapNotNull { it.hostAddress }.distinct() } catch (_: Exception) { emptyList() }
+        val chain = ArrayList<String>()
+        var current = domain
+        repeat(8) {
+            val next = dohLookup(current, 5).firstOrNull() ?: return@repeat
+            if (next.equals(current, true) || chain.any { it.equals(next, true) }) return@repeat
+            chain.add(next); current = next
+        }
         val ns = dohLookup(domain, 2)
-        var server: String? = null
-        var cfRay: String? = null
-        var via = ""
-        var servedBy: String? = null
+        var server: String? = null; var cfRay: String? = null
+        var via = ""; var cache = ""; var cfId = ""; var azureRef = ""; var imperva = ""; var served = ""
         try {
             val c = URL("https://$domain").openConnection() as HttpURLConnection
-            c.connectTimeout = 6000
-            c.readTimeout = 6000
-            c.instanceFollowRedirects = true
-            c.requestMethod = "GET"
-            c.setRequestProperty("Range", "bytes=0-0")
-            c.setRequestProperty("User-Agent", "NetQuality/2.4")
-            c.responseCode
-            server = c.getHeaderField("Server")
-            cfRay = c.getHeaderField("CF-Ray")
-            via = c.getHeaderField("Via") ?: ""
-            servedBy = c.getHeaderField("X-Served-By")
+            c.connectTimeout = 6500; c.readTimeout = 6500; c.instanceFollowRedirects = true
+            c.requestMethod = "GET"; c.setRequestProperty("Range", "bytes=0-0")
+            c.setRequestProperty("User-Agent", "NetQuality/2.5")
+            try { c.responseCode } catch (_: Exception) { }
+            server = c.getHeaderField("Server"); cfRay = c.getHeaderField("CF-Ray")
+            via = c.getHeaderField("Via") ?: ""; cache = c.getHeaderField("X-Cache") ?: ""
+            served = c.getHeaderField("X-Served-By") ?: ""; cfId = c.getHeaderField("X-Amz-Cf-Id") ?: ""
+            azureRef = c.getHeaderField("X-Azure-Ref") ?: ""; imperva = c.getHeaderField("X-Iinfo") ?: ""
             c.disconnect()
         } catch (_: Exception) { }
-
         val ip = ips.firstOrNull { it.contains(".") } ?: ips.firstOrNull()
-        var country: String? = null
-        var city: String? = null
-        var org: String? = null
-        var asn: String? = null
-        if (ip != null) {
-            try {
-                val c = URL("https://ipwho.is/$ip").openConnection() as HttpURLConnection
-                c.connectTimeout = 5000
-                c.readTimeout = 5000
-                val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
-                if (j.optBoolean("success", false)) {
-                    country = j.optString("country").takeIf { it.isNotBlank() }
-                    city = j.optString("city").takeIf { it.isNotBlank() }
-                    val connection = j.optJSONObject("connection")
-                    org = connection?.optString("org")?.takeIf { it.isNotBlank() }
-                    asn = connection?.optString("asn")?.takeIf { it.isNotBlank() }
-                }
-                c.disconnect()
-            } catch (_: Exception) { }
-        }
-
-        val clues = ArrayList<String>()
-        val cnameText = cname.orEmpty().lowercase()
-        val nsText = ns.joinToString(" ").lowercase()
-        val orgText = org.orEmpty().lowercase()
-        val asnText = asn.orEmpty().lowercase()
-        val serverText = server.orEmpty().lowercase()
-        val viaText = via.lowercase()
-        val servedText = servedBy.orEmpty().lowercase()
-        val cf = cfRay != null || serverText.contains("cloudflare") ||
-            cnameText.contains("cloudflare") || nsText.contains("cloudflare") ||
-            asnText.contains("13335") || orgText.contains("cloudflare")
-        val cloudfront = cnameText.contains("cloudfront") || viaText.contains("cloudfront") ||
-            serverText.contains("cloudfront") || orgText.contains("amazon") && cnameText.contains("cloudfront")
-        val akamai = cnameText.contains("akamai") || serverText.contains("akama") ||
-            viaText.contains("akamai") || orgText.contains("akamai")
-        val fastly = cnameText.contains("fastly") || serverText.contains("fastly") ||
-            servedText.contains("cache-") || orgText.contains("fastly")
+        var country: String? = null; var city: String? = null; var org: String? = null; var asn: String? = null
+        if (ip != null) try {
+            val c = URL("https://ipwho.is/$ip").openConnection() as HttpURLConnection
+            c.connectTimeout = 5000; c.readTimeout = 5000
+            val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
+            if (j.optBoolean("success", false)) {
+                country = j.optString("country").takeIf { it.isNotBlank() }; city = j.optString("city").takeIf { it.isNotBlank() }
+                val con = j.optJSONObject("connection")
+                org = con?.optString("org")?.takeIf { it.isNotBlank() }; asn = con?.optString("asn")?.takeIf { it.isNotBlank() }
+            }
+            c.disconnect()
+        } catch (_: Exception) { }
+        val cnameText = chain.joinToString(" ").lowercase(Locale.ROOT)
+        val nsText = ns.joinToString(" ").lowercase(Locale.ROOT)
+        val orgText = org.orEmpty().lowercase(Locale.ROOT); val asnText = asn.orEmpty().lowercase(Locale.ROOT)
+        val signals = listOf(cnameText, nsText, orgText, server.orEmpty(), via, cache, served, cfId, azureRef, imperva)
+            .joinToString(" ").lowercase(Locale.ROOT)
+        val rules = listOf(
+            Triple("Cloudflare", listOf("cloudflare"), listOf("13335")),
+            Triple("Amazon CloudFront", listOf("cloudfront.net", "cloudfront"), listOf("16509")),
+            Triple("Akamai", listOf("akamai", "edgekey.net", "edgesuite.net", "akamaized.net"), listOf("20940", "16625", "35994")),
+            Triple("Fastly", listOf("fastly.net", "fastlylb.net", "x-served-by"), listOf("54113")),
+            Triple("Microsoft Azure Front Door/CDN", listOf("azureedge.net", "azurefd.net", "trafficmanager.net", "x-azure-ref"), listOf("8075")),
+            Triple("Google Cloud CDN", listOf("googleusercontent.com", "googlehosted.com", "gcdn"), listOf("15169")),
+            Triple("Imperva / Incapsula", listOf("incapdns.net", "imperva", "incapsula", "x-iinfo"), listOf("19551")),
+            Triple("Gcore", listOf("gcore", "gcdn.co", "gcorelabs.net"), listOf("199524")),
+            Triple("Bunny CDN", listOf("b-cdn.net", "bunnycdn", "bunny.net"), listOf("200373")),
+            Triple("KeyCDN", listOf("kxcdn.com", "keycdn"), listOf("16625")),
+            Triple("Sucuri", listOf("sucuri", "cloudproxy"), listOf("30148")),
+            Triple("Edgio / Limelight", listOf("edgio", "llnwd.net", "limelight"), listOf("22822")),
+            Triple("CacheFly", listOf("cachefly"), listOf("30081")),
+            Triple("Alibaba Cloud CDN", listOf("alikunlun", "kunlun", "aliyuncs"), listOf("45102")),
+            Triple("Tencent Cloud CDN", listOf("dnsv1.com", "tencent", "qcloud"), listOf("45090"))
+        )
+        val found = rules.mapNotNull { (name, patterns, asns) ->
+            if (patterns.any { signals.contains(it) } || (asns.any { asnText.contains(it) } && orgText.isNotBlank())) name else null
+        }.distinct()
         val cdn = when {
-            cf -> "Cloudflare"
-            cloudfront -> "Amazon CloudFront"
-            akamai -> "Akamai"
-            fastly -> "Fastly (احتمالی)"
-            cnameText.contains("edgekey") || cnameText.contains("edgesuite") -> "Akamai (احتمالی)"
-            cnameText.contains("azureedge") || cnameText.contains("trafficmanager") -> "Azure CDN (احتمالی)"
+            found.size == 1 -> found.first()
+            found.size > 1 -> found.joinToString(" / ") + " (چند نشانه)"
+            chain.isNotEmpty() -> "CDN یا سرویس واسط محتمل؛ ارائه‌دهنده مشخص نشد"
+            cache.contains("hit", true) || served.contains("cache", true) -> "وجود Cache محتمل؛ ارائه‌دهنده مشخص نشد"
             else -> "CDN از شواهد فعلی تأیید نشد"
         }
-        if (cfRay != null) clues.add("هدر اختصاصی CF-Ray دریافت شد")
-        if (serverText.contains("cloudflare")) clues.add("هدر Server به Cloudflare اشاره می‌کند")
-        if (cname != null) clues.add("رکورد CNAME: $cname")
-        if (ns.isNotEmpty()) clues.add("NS: " + ns.take(3).joinToString(", "))
-        if (asn != null || org != null) clues.add("مالک شبکه IP: " + listOfNotNull(asn, org).joinToString(" / "))
-
+        val evidence = ArrayList<String>()
+        if (chain.isNotEmpty()) evidence.add("زنجیره CNAME: " + chain.joinToString(" → "))
+        if (ns.isNotEmpty()) evidence.add("NS: " + ns.take(5).joinToString(", "))
+        if (cfRay != null) evidence.add("هدر اختصاصی CF-Ray")
+        if (cfId.isNotBlank()) evidence.add("هدر X-Amz-Cf-Id")
+        if (azureRef.isNotBlank()) evidence.add("هدر X-Azure-Ref")
+        if (imperva.isNotBlank()) evidence.add("هدر X-Iinfo")
+        if (server != null) evidence.add("Server: $server")
+        if (via.isNotBlank()) evidence.add("Via: $via")
+        if (cache.isNotBlank() || served.isNotBlank()) evidence.add("Cache/Served-By: " + listOf(cache, served).filter { it.isNotBlank() }.joinToString(" / "))
+        if (asn != null || org != null) evidence.add("مالک شبکه IP: " + listOfNotNull(asn, org).joinToString(" / "))
+        if (found.isNotEmpty()) evidence.add("ارائه‌دهنده محتمل بر اساس شواهد: " + found.joinToString(", "))
         var colo: String? = null
-        if (cf) {
-            try {
-                val c = URL("https://$domain/cdn-cgi/trace").openConnection() as HttpURLConnection
-                c.connectTimeout = 4500
-                c.readTimeout = 4500
-                val body = c.inputStream.bufferedReader().use { it.readText() }
-                colo = body.lineSequence().firstOrNull { it.startsWith("colo=") }?.substringAfter("=")
-                c.disconnect()
-            } catch (_: Exception) { }
-        }
-        val note = if (cf) {
-            "IP و GeoIP بالا مربوط به لبه Cloudflare است، نه سرور مبدأ. IP Origin فقط در صورت افشای عمومی از DNS یا منابع دیگر قابل شناسایی است."
-        } else {
-            "کشور و شهر، تخمین پایگاه GeoIP برای IP پاسخ‌گو هستند؛ محل فیزیکی قطعی سرور محسوب نمی‌شوند. تشخیص CDN نیز بر اساس شواهد در دسترس است."
-        }
-        return SiteInfra(ips, cdn, server, cfRay, colo, country, city, org, note, cname, asn, clues)
+        if ("Cloudflare" in found) try {
+            val c = URL("https://$domain/cdn-cgi/trace").openConnection() as HttpURLConnection
+            c.connectTimeout = 4500; c.readTimeout = 4500
+            colo = c.inputStream.bufferedReader().use { it.readText() }.lineSequence().firstOrNull { it.startsWith("colo=") }?.substringAfter("=")
+            c.disconnect()
+        } catch (_: Exception) { }
+        val note = if (found.isNotEmpty()) "تشخیص بر اساس نشانه‌های DNS، هدر یا ASN است. IP و GeoIP معمولاً مربوط به لبه CDN/شبکه واسط هستند، نه سرور مبدأ."
+            else "نبود نشانه به معنی نبود CDN نیست؛ برخی سرویس‌ها CNAME و هدرها را پنهان می‌کنند. GeoIP فقط تخمین موقعیت IP پاسخ‌گو است."
+        return SiteInfra(ips, cdn, server, cfRay, colo, country, city, org, note, chain.firstOrNull(), asn, evidence)
     }
 
     data class IperfUdpResult(
