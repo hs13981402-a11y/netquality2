@@ -287,7 +287,15 @@ object Net {
             Triple("Tencent Cloud CDN", listOf("dnsv1.com", "tencent", "qcloud"), listOf("45090"))
         )
         val found = rules.mapNotNull { (name, patterns, asns) ->
-            if (patterns.any { signals.contains(it) } || (asns.any { asnText.contains(it) } && orgText.isNotBlank())) name else null
+            val explicitHeader = when (name) {
+                "Cloudflare" -> cfRay != null
+                "Amazon CloudFront" -> cfId.isNotBlank()
+                "Microsoft Azure Front Door/CDN" -> azureRef.isNotBlank()
+                "Imperva / Incapsula" -> imperva.isNotBlank()
+                else -> false
+            }
+            if (explicitHeader || patterns.any { signals.contains(it) } ||
+                (asns.any { asnText.contains(it) } && orgText.isNotBlank())) name else null
         }.distinct()
         val cdn = when {
             found.size == 1 -> found.first()
