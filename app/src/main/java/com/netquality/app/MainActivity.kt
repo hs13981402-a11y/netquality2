@@ -119,6 +119,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvUploadLossResult: TextView
     private lateinit var etIperfHost: EditText
     private lateinit var etIperfPort: EditText
+    private lateinit var cbAutoIperfServer: CheckBox
     private lateinit var etDnsLookup: EditText
     private lateinit var spDnsType: Spinner
     private lateinit var tvDnsLookupResult: TextView
@@ -204,9 +205,14 @@ class MainActivity : AppCompatActivity() {
         tvUploadLossResult = findViewById(R.id.tvUploadLossResult)
         etIperfHost = findViewById(R.id.etIperfHost)
         etIperfPort = findViewById(R.id.etIperfPort)
+        cbAutoIperfServer = findViewById(R.id.cbAutoIperfServer)
         val iperfPrefs = getSharedPreferences("netq", MODE_PRIVATE)
-        etIperfHost.setText(iperfPrefs.getString("iperf_host", "speedtest.uninet.az"))
-        etIperfPort.setText(iperfPrefs.getInt("iperf_port", 5201).toString())
+        etIperfHost.setText(iperfPrefs.getString("iperf_host", "speedtest.uztelecom.uz"))
+        etIperfPort.setText(iperfPrefs.getInt("iperf_port", 5200).toString())
+        cbAutoIperfServer.isChecked = iperfPrefs.getBoolean("iperf_auto", true)
+        cbAutoIperfServer.setOnCheckedChangeListener { _, checked ->
+            iperfPrefs.edit().putBoolean("iperf_auto", checked).apply()
+        }
         etDnsLookup = findViewById(R.id.etDnsLookup)
         spDnsType = findViewById(R.id.spDnsType)
         tvDnsLookupResult = findViewById(R.id.tvDnsLookupResult)
@@ -323,6 +329,47 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private data class PublicIperfServer(val host: String, val port: Int, val location: String)
+
+    // فهرست اولیه سرورهای عمومی که در فهرست‌های عمومی، پشتیبانی UDP برای آن‌ها ذکر شده است.
+    // وضعیت دسترسی هر سرور در زمان اجرای آزمون دوباره بررسی می‌شود.
+    private val publicIperfServers = listOf(
+        PublicIperfServer("speedtest.uztelecom.uz", 5200, "ازبکستان - تاشکند"),
+        PublicIperfServer("iperf.online.net", 5200, "فرانسه - پاریس"),
+        PublicIperfServer("iperf3.moji.fr", 5200, "فرانسه - پاریس"),
+        PublicIperfServer("speedtest.milkywan.fr", 9200, "فرانسه"),
+        PublicIperfServer("ping.online.net", 5200, "فرانسه - پاریس")
+    )
+
+    private suspend fun runIperfUdpWithFallback(bitrate: String, durationSeconds: Int): Net.IperfUdpResult {
+        if (!cbAutoIperfServer.isChecked) {
+            val (host, port) = iperfServer()
+            return withContext(Dispatchers.IO) { Net.iperfUdpTest(this@MainActivity, host, port, bitrate, durationSeconds) }
+        }
+
+        val errors = ArrayList<String>()
+        for (server in publicIperfServers) {
+            val tcp = withContext(Dispatchers.IO) { Net.tcpOnce(server.host, server.port, 2200) }
+            if (tcp == null) {
+                errors.add("${server.location} (${server.host}:${server.port}): پورت TCP در دسترس نیست")
+                continue
+            }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    Net.iperfUdpTest(this@MainActivity, server.host, server.port, bitrate, durationSeconds)
+                }
+                etIperfHost.setText(server.host)
+                etIperfPort.setText(server.port.toString())
+                getSharedPreferences("netq", MODE_PRIVATE).edit()
+                    .putString("iperf_host", server.host).putInt("iperf_port", server.port).apply()
+                return result
+            } catch (e: Exception) {
+                errors.add("${server.location} (${server.host}:${server.port}): ${e.message ?: "خطای اتصال"}")
+            }
+        }
+        throw IllegalStateException("هیچ‌یک از سرورهای عمومی در این اتصال آزمون iperf3 را کامل نکردند.\n" +
+            errors.joinToString("\n") + "\nحالت خودکار را خاموش کنید و آدرس سرور اختصاصی خود را وارد کنید.")
+    }
     private fun iperfServer(): Pair<String, Int> {
         val host = etIperfHost.text.toString().trim()
         val port = etIperfPort.text.toString().trim().toIntOrNull()
@@ -338,10 +385,7 @@ class MainActivity : AppCompatActivity() {
         tvUdpLossResult.text = "آزمون واقعی iperf3 UDP با نرخ 1 Mbps در حال اجراست..."
         lifecycleScope.launch {
             try {
-                val (host, port) = iperfServer()
-                val result = withContext(Dispatchers.IO) {
-                    Net.iperfUdpTest(this@MainActivity, host, port, "1M", 10)
-                }
+                val result = runIperfUdpWithFallback("1M", 10)
                 tvUdpLossResult.text = "سرور: ${result.host}:${result.port}\nنرخ هدف: ${result.bitrate}\nبسته‌های گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ واقعی: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps"
             } catch (e: Exception) {
                 tvUdpLossResult.text = "آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}\nممکن است سرور عمومی در دسترس نباشد یا UDP/5201 را محدود کرده باشد."
@@ -355,10 +399,7 @@ class MainActivity : AppCompatActivity() {
         tvUploadLossResult.text = "آزمون UDP Upload با نرخ هدف 10 Mbps در حال اجراست..."
         lifecycleScope.launch {
             try {
-                val (host, port) = iperfServer()
-                val result = withContext(Dispatchers.IO) {
-                    Net.iperfUdpTest(this@MainActivity, host, port, "10M", 15)
-                }
+                val result = runIperfUdpWithFallback("10M", 15)
                 tvUploadLossResult.text = "آزمون UDP Upload به سرور ${result.host}:${result.port}\nنرخ هدف ارسال: ${result.bitrate}\nبسته‌های ارسالی/گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss در مسیر Upload: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ دریافت‌شده در سرور: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps\n\nاین آزمون افت بسته‌های UDP ارسالی از گوشی به سرور را می‌سنجد؛ آزمون اشباع هم‌زمان TCP نیست."
             } catch (e: Exception) {
                 tvUploadLossResult.text = "آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}\nممکن است سرور عمومی در دسترس نباشد یا UDP/5201 را محدود کرده باشد."
