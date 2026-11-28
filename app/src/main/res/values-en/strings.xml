@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">NetQuality</string>
+    <string-array name="filter_sites">
+        <item>Facebook — facebook.com</item>
+        <item>Instagram — instagram.com</item>
+        <item>YouTube — youtube.com</item>
+        <item>Telegram — t.me</item>
+        <item>X — x.com</item>
+        <item>WhatsApp — whatsapp.com</item>
+        <item>Google — google.com</item>
+    </string-array>
+    <string-array name="operator_names">
+        <item>Unknown / Other</item><item>Telecommunication</item><item>Hamrah-e Aval</item>
+        <item>Irancell</item><item>Rightel</item><item>Shatel</item>
+        <item>HiWeb</item><item>Asiatech</item><item>Mobinnet</item>
+    </string-array>
+    <string-array name="dns_record_types">
+        <item>A</item><item>AAAA</item><item>MX</item><item>NS</item>
+        <item>TXT</item><item>CNAME</item><item>SOA</item><item>All records</item>
+    </string-array>
+</resources>

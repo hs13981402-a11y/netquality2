@@ -32,6 +32,8 @@ import androidx.appcompat.app.AlertDialog
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -104,8 +106,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etFilterDomain: EditText
     private lateinit var spFilterSite: Spinner
     private lateinit var spFilterOperator: Spinner
-    private lateinit var spFilterCompareA: Spinner
-    private lateinit var spFilterCompareB: Spinner
+    private lateinit var etFilterTestName: EditText
     private lateinit var etDnsServer: EditText
     private lateinit var spDnsServer: Spinner
     private lateinit var dnsChartsContainer: LinearLayout
@@ -119,6 +120,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvUploadLossResult: TextView
     private lateinit var etIperfHost: EditText
     private lateinit var etIperfPort: EditText
+    private lateinit var cbAutoIperfServer: CheckBox
+    private lateinit var spManualIperfServer: Spinner
+    private lateinit var manualIperfActions: LinearLayout
+    private data class ManualIperfServer(val name: String, val host: String, val port: Int)
+    private val manualIperfServers = mutableListOf<ManualIperfServer>()
+    private var selectedManualIperfServer = 0
     private lateinit var etDnsLookup: EditText
     private lateinit var spDnsType: Spinner
     private lateinit var tvDnsLookupResult: TextView
@@ -178,6 +185,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val appearancePrefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val languageTag = appearancePrefs.getString("ui_language", "fa") ?: "fa"
+        if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != languageTag) {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(languageTag))
+        }
+        val darkTheme = appearancePrefs.getString("ui_theme", "light") == "dark"
+        AppCompatDelegate.setDefaultNightMode(
+            if (darkTheme) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        )
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -189,8 +205,7 @@ class MainActivity : AppCompatActivity() {
         etFilterDomain = findViewById(R.id.etFilterDomain)
         spFilterSite = findViewById(R.id.spFilterSite)
         spFilterOperator = findViewById(R.id.spFilterOperator)
-        spFilterCompareA = findViewById(R.id.spFilterCompareA)
-        spFilterCompareB = findViewById(R.id.spFilterCompareB)
+        etFilterTestName = findViewById(R.id.etFilterTestName)
         etDnsServer = findViewById(R.id.etDnsServer)
         spDnsServer = findViewById(R.id.spDnsServer)
         dnsChartsContainer = findViewById(R.id.dnsChartsContainer)
@@ -204,9 +219,16 @@ class MainActivity : AppCompatActivity() {
         tvUploadLossResult = findViewById(R.id.tvUploadLossResult)
         etIperfHost = findViewById(R.id.etIperfHost)
         etIperfPort = findViewById(R.id.etIperfPort)
+        cbAutoIperfServer = findViewById(R.id.cbAutoIperfServer)
         val iperfPrefs = getSharedPreferences("netq", MODE_PRIVATE)
-        etIperfHost.setText(iperfPrefs.getString("iperf_host", "speedtest.uninet.az"))
-        etIperfPort.setText(iperfPrefs.getInt("iperf_port", 5201).toString())
+        etIperfHost.setText(iperfPrefs.getString("iperf_host", "speedtest.uztelecom.uz"))
+        etIperfPort.setText(iperfPrefs.getInt("iperf_port", 5200).toString())
+        cbAutoIperfServer.isChecked = iperfPrefs.getBoolean("iperf_auto", true)
+        cbAutoIperfServer.setOnCheckedChangeListener { _, checked ->
+            iperfPrefs.edit().putBoolean("iperf_auto", checked).apply()
+            refreshManualIperfUi()
+        }
+        setupManualIperfServerManager()
         etDnsLookup = findViewById(R.id.etDnsLookup)
         spDnsType = findViewById(R.id.spDnsType)
         tvDnsLookupResult = findViewById(R.id.tvDnsLookupResult)
@@ -263,7 +285,7 @@ class MainActivity : AppCompatActivity() {
             manageDnsServer()
             true
         }
-        findViewById<Button>(R.id.btnCompareFilter).setOnClickListener { compareFilterOperators() }
+        findViewById<Button>(R.id.btnCompareFilter).setOnClickListener { compareFilterTests() }
         findViewById<Button>(R.id.btnShareFilter).setOnClickListener {
             val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
             share("گزارش بررسی دسترسی\nزمان: $stamp\n\n${tvFilterResult.text}")
@@ -284,6 +306,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSave).setOnClickListener { saveSettings() }
         findViewById<Button>(R.id.btnReset).setOnClickListener { resetSettings() }
         loadSettings()
+        setupAppearanceSettings()
+        applyUiLanguage()
+        applyAppearanceColors()
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
@@ -305,25 +330,531 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showPanel(i: Int) {
-        panelTest.visibility = if (i == 0) View.VISIBLE else View.GONE
-        panelPlot.visibility = if (i == 1) View.VISIBLE else View.GONE
-        panelSettings.visibility = if (i == 2) View.VISIBLE else View.GONE
-        panelChart.visibility = if (i == 3) View.VISIBLE else View.GONE
-        panelFilter.visibility = if (i == 4) View.VISIBLE else View.GONE
-        panelDns.visibility = if (i == 5) View.VISIBLE else View.GONE
-        panelPacketLoss.visibility = if (i == 6) View.VISIBLE else View.GONE
 
-        val tabIds = intArrayOf(R.id.tabTest, R.id.tabPlot, R.id.tabSettings, R.id.tabChart, R.id.tabFilter, R.id.tabDns, R.id.tabPacketLoss)
-        tabIds.forEachIndexed { index, id ->
-            val tab = findViewById<Button>(id)
-            val selected = index == i
-            tab.backgroundTintList = ColorStateList.valueOf(Color.parseColor(if (selected) "#0E9F9A" else "#263858"))
-            tab.setTextColor(Color.parseColor(if (selected) "#FFFFFF" else "#DCE8F4"))
+    private fun setupAppearanceSettings() {
+        val scroll = panelSettings as? ScrollView ?: return
+        val content = scroll.getChildAt(0) as? LinearLayout ?: return
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+        fun cardBackground(): android.graphics.drawable.GradientDrawable =
+            android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor(if (isDarkTheme()) "#17263A" else "#FFFFFF"))
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), Color.parseColor(if (isDarkTheme()) "#2A3B52" else "#E2EAF2"))
+            }
+        fun makeChoice(label: String, selected: Boolean): Button = Button(this).apply {
+            text = label
+            isAllCaps = false
+            textSize = 13f
+            minHeight = dp(48)
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor(if (selected) "#087F8C" else if (isDarkTheme()) "#22334A" else "#F0F4F8"))
+                cornerRadius = dp(12).toFloat()
+                if (!selected) setStroke(dp(1), Color.parseColor(if (isDarkTheme()) "#344A63" else "#DCE5EE"))
+            }
+            setTextColor(Color.parseColor(if (selected) "#FFFFFF" else if (isDarkTheme()) "#E7EEF7" else "#34465C"))
+            stateListAnimator = null
+        }
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        val section = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = cardBackground()
+        }
+        section.addView(TextView(this).apply {
+            text = if (isEnglishUi()) "Personalize your workspace" else "شخصی‌سازی محیط برنامه"
+            textSize = 18f
+            setTextColor(Color.parseColor(if (isDarkTheme()) "#F2F6FC" else "#17324D"))
+            setTypeface(typeface, Typeface.BOLD)
+        })
+        section.addView(TextView(this).apply {
+            text = if (isEnglishUi()) "Choose app language" else "زبان برنامه را انتخاب کنید"
+            textSize = 13f
+            setTextColor(Color.parseColor(if (isDarkTheme()) "#AFC1D5" else "#64758A"))
+            setPadding(0, dp(16), 0, dp(8))
+        })
+        val languageRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER
+        }
+        val fa = makeChoice("🇮🇷  فارسی", (prefs.getString("ui_language", "fa") ?: "fa") == "fa")
+        val en = makeChoice("🇬🇧  English", (prefs.getString("ui_language", "fa") ?: "fa") == "en")
+        languageRow.addView(fa, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(6) })
+        languageRow.addView(en, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginStart = dp(6) })
+        section.addView(languageRow)
+        section.addView(TextView(this).apply {
+            text = if (isEnglishUi()) "Color appearance" else "حالت نمایش و رنگ‌بندی"
+            textSize = 13f
+            setTextColor(Color.parseColor(if (isDarkTheme()) "#AFC1D5" else "#64758A"))
+            setPadding(0, dp(18), 0, dp(8))
+        })
+        val themeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER
+        }
+        val light = makeChoice("☀  روشن  /  Light", !isDarkTheme())
+        val dark = makeChoice("☾  تیره  /  Dark", isDarkTheme())
+        themeRow.addView(light, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(6) })
+        themeRow.addView(dark, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginStart = dp(6) })
+        section.addView(themeRow)
+        section.addView(TextView(this).apply {
+            text = if (isEnglishUi()) "Changes are saved automatically." else "تغییرات به‌صورت خودکار ذخیره می‌شوند."
+            textSize = 11f
+            setTextColor(Color.parseColor(if (isDarkTheme()) "#91A4BB" else "#8292A5"))
+            setPadding(0, dp(10), 0, 0)
+        })
+        content.addView(section, 0)
+        fun refreshChoices() {
+            val language = (prefs.getString("ui_language", "fa") ?: "fa")
+            fa.background = makeChoice("🇮🇷  فارسی", language == "fa").background
+            en.background = makeChoice("🇬🇧  English", language == "en").background
+            fa.setTextColor(Color.parseColor(if (language == "fa") "#FFFFFF" else if (isDarkTheme()) "#E7EEF7" else "#34465C"))
+            en.setTextColor(Color.parseColor(if (language == "en") "#FFFFFF" else if (isDarkTheme()) "#E7EEF7" else "#34465C"))
+            light.background = makeChoice("☀  روشن  /  Light", !isDarkTheme()).background
+            dark.background = makeChoice("☾  تیره  /  Dark", isDarkTheme()).background
+            light.setTextColor(Color.parseColor(if (!isDarkTheme()) "#FFFFFF" else "#E7EEF7"))
+            dark.setTextColor(Color.parseColor(if (isDarkTheme()) "#FFFFFF" else "#34465C"))
+        }
+        fa.setOnClickListener {
+            prefs.edit().putString("ui_language", "fa").apply()
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fa"))
+        }
+        en.setOnClickListener {
+            prefs.edit().putString("ui_language", "en").apply()
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en"))
+        }
+        light.setOnClickListener {
+            prefs.edit().putString("ui_theme", "light").apply()
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        }
+        dark.setOnClickListener {
+            prefs.edit().putString("ui_theme", "dark").apply()
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        }
+        refreshChoices()
+    }
+
+    private fun applyUiLanguage() {
+        if (AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en")) {
+            val translations = mapOf(
+                "◉  تست کامل" to "◉  Full test",
+                "⌁  تریس / پلاتر" to "⌁  Trace / Plotter",
+                "▥  نمودار" to "▥  Charts",
+                "◈  فیلترینگ" to "◈  Access check",
+                "⚙  تنظیمات" to "⚙  Settings",
+                "برای شروع، دکمه‌ی تست را بزنید" to "Press Start to begin network tests",
+                "اجرای خودکار پس از اتصال مجدد (اختیاری)" to "Run automatically after reconnect (optional)",
+                "شروع تست" to "Start test",
+                "مقایسه دو تست آخر (قبل و بعد از تغییر اینترنت)" to "Compare the last two tests",
+                "ارسال گزارش" to "Share report",
+                "گزارش‌های ذخیره‌شده" to "Saved reports",
+                "هاست یا IP مقصد" to "Target host or IP",
+                "Trace (ICMP)" to "Trace (ICMP)",
+                "TCP Ping" to "TCP Ping",
+                "پورت (فقط برای حالت TCP)" to "Port (TCP only)",
+                "فاصله به‌روزرسانی نمودار (ثانیه)" to "Chart refresh interval (seconds)",
+                "عدد بین ۱ تا ۶۰ ثانیه" to "Enter a value from 1 to 60 seconds",
+                "شروع" to "Start",
+                "پایش زنده کیفیت ارتباط" to "Live connection quality monitoring",
+                "تشخیص محدودیت دسترسی" to "Access restriction diagnostics",
+                "دامنه‌های آماده" to "Preset domains",
+                "یا دامنه دلخواه مثل example.com" to "Or enter a domain, e.g. example.com",
+                "اپراتوری که همین حالا به اینترنت آن متصل هستید" to "Current internet provider",
+                "شروع بررسی دسترسی" to "Start access check",
+                "نام‌گذاری و مقایسه تست‌ها" to "Name and compare tests",
+                "انتخاب و مقایسه تست‌ها" to "Select and compare tests",
+                "اشتراک‌گذاری گزارش بررسی" to "Share diagnostic report",
+                "◎  DNS" to "◎  DNS",
+                "▤  Packet Loss" to "▤  Packet Loss",
+                "MONITORING" to "MONITORING",
+                "Network monitoring & diagnostics" to "Network monitoring & diagnostics",
+                "تأخیر پاسخ در طول زمان؛ نقاط قرمز نشان‌دهنده بسته‌های بدون پاسخ هستند." to "Response delay over time; red points indicate packets with no reply.",
+                "نام دلخواه؛ مثلاً BRAS فیض یا BRAS خرازی" to "Custom name, e.g. BRAS Feyz or BRAS Kharazi",
+                "گزارش مرحله‌ای بررسی دسترسی، DNS، CDN و IP در این قسمت نمایش داده می‌شود." to "Layered access, DNS, CDN and IP diagnostic report appears here.",
+                "نتیجه استعلام در این قسمت نمایش داده می‌شود." to "Lookup results appear here.",
+                "ارسال جریان UDP با نرخ هدف 1 Mbps به سرور iperf3 و محاسبه Packet Loss واقعی از گزارش سمت سرور." to "Sends UDP at 1 Mbps to an iperf3 server and reads packet loss from the server report.",
+                "نتیجه تست UDP هنوز ثبت نشده است." to "No UDP test result yet.",
+                "ارسال جریان UDP از گوشی به سرور با نرخ هدف 10 Mbps؛ افت بسته‌های مسیر Upload مستقیماً از گزارش iperf3 خوانده می‌شود." to "Sends UDP from the device at 10 Mbps; upload packet loss is read from the iperf3 report.",
+                "نتیجه تست زیر بار آپلود هنوز ثبت نشده است." to "No upload-load test result yet.",
+                "DNS Explorer" to "DNS Explorer",
+                "دامنه؛ مثال example.com" to "Domain, e.g. example.com",
+                "DNS Server انتخابی" to "Selected DNS server",
+                "IP سرور DNS مثل 192.168.1.1" to "DNS server IP, e.g. 192.168.1.1",
+                "افزودن" to "Add",
+                "شروع پایش DNS" to "Start DNS monitoring",
+                "Packet Loss Lab" to "Packet Loss Lab",
+                "سرور iperf3 (سرور باید از قبل در حالت Server فعال باشد)" to "iperf3 server (must be running in server mode)",
+                "انتخاب خودکار سرور رایگان و جایگزین در صورت قطعی" to "Auto-select public servers and try alternatives",
+                "در حالت خودکار، سرورها به‌ترتیب بررسی می‌شوند. برای استفاده از سرور خودتان، این گزینه را خاموش کنید." to "Auto mode checks servers in sequence. Turn this off to use your own server.",
+                "آدرس IP یا دامنه سرور" to "Server IP address or hostname",
+                "پورت iperf3 (پیش‌فرض 5201)" to "iperf3 port (default 5201)",
+                "۱. Packet Loss در UDP" to "1. UDP packet loss",
+                "اجرای تست UDP" to "Run UDP test",
+                "۲. افت پروب UDP حین Upload" to "2. UDP probe loss during upload",
+                "اجرای تست UDP زیر بار آپلود" to "Run UDP test during upload",
+                "هر خط یک مورد. خطی که با # شروع شود نادیده گرفته می‌شود." to "One item per line. Lines starting with # are ignored.",
+                "اهداف پینگ (هر خط یک مورد؛ host یا host:port برای حالت TCP)" to "Ping targets (one per line; host or host:port for TCP)",
+                "سرورهای DNS برای تست (هر خط یک IP)" to "DNS servers for testing (one IP per line)",
+                "دامنه‌های تست DNS" to "DNS test domains",
+                "سایت‌های بین‌المللی برای تست دسترسی" to "International websites for access checks",
+                "سایت‌های داخلی برای تست دسترسی" to "Local websites for access checks",
+                "آدرس فایل‌های تست سرعت دانلود" to "Download speed test file URLs",
+                "اجرای تست سرعت دانلود در تست کامل" to "Run download speed test during full test",
+                "در حالت خاموش، تست کامل بدون دانلود فایل حجیم اجرا می‌شود." to "When disabled, the full test skips large downloads.",
+                "اجرای تست آپلود و پایش UDP حین آپلود در تست کامل" to "Run upload test and UDP monitoring during full test",
+                "در صورت فعال‌سازی، تست آپلود به‌همراه پایش UDP اجرا می‌شود." to "When enabled, upload testing runs with UDP monitoring.",
+                "ذخیره" to "Save",
+                "بازگشت به پیش‌فرض" to "Restore defaults",
+                "هر سه نمودار هم‌زمان به‌روزرسانی می‌شوند. فاصله Refresh را از تب «تریس / پلاتر» تنظیم کنید." to "All three charts refresh together. Set the interval in Trace / Plotter.",
+                "آزمون مرحله‌ای DNS، TCP، TLS/SNI، HTTPS و شناسایی CDN؛ هر لایه جداگانه نتیجه‌گیری می‌شود و تشخیص فیلترینگ قطعی نیست." to "Layered DNS, TCP, TLS/SNI, HTTPS and CDN checks. Each layer is assessed separately; results are not definitive proof of filtering.",
+                "نام‌گذاری و مقایسه تست‌ها" to "Name and compare tests",
+                "هر تست با نام و زمان خودش ذخیره می‌شود؛ از فهرست می‌توانید دو یا چند تست را برای مقایسه انتخاب کنید." to "Each test is saved with its name and timestamp. Select multiple tests to compare.",
+                "استعلام مستقیم از DNS انتخاب‌شده، پایش زمان پاسخ و نمایش وضعیت رکوردهای مختلف." to "Query the selected DNS server, monitor response time and inspect record types.",
+                "نمودار زنده زمان پاسخ DNS · پایش پیوسته" to "Live DNS response-time chart",
+                "آزمون‌های واقعی UDP با موتور iperf3؛ آمار افت بسته و Jitter از گزارش سرور دریافت می‌شود." to "Real UDP tests powered by iperf3. Packet loss and jitter are read from the server report."
+            )
+            val contentRoot = findViewById<View>(android.R.id.content)
+            val root = (contentRoot as? android.view.ViewGroup)?.getChildAt(0) ?: contentRoot
+            root.layoutDirection = View.LAYOUT_DIRECTION_LTR
+            fun walk(view: View) {
+                if (view is TextView) {
+                    val original = view.text?.toString()
+                    if (original != null) translations[original]?.let { view.text = it }
+                    if (view is EditText) {
+                        val hint = view.hint?.toString()
+                        if (hint != null) translations[hint]?.let { view.hint = it }
+                    }
+                }
+                if (view is android.view.ViewGroup) {
+                    for (i in 0 until view.childCount) walk(view.getChildAt(i))
+                }
+            }
+            walk(root)
         }
     }
 
+    private fun isDarkTheme(): Boolean =
+        getSharedPreferences("netq", MODE_PRIVATE).getString("ui_theme", "light") == "dark"
+
+    private fun applyAppearanceColors() {
+        val dark = isDarkTheme()
+        val page = Color.parseColor(if (dark) "#0B1220" else "#F3F6FA")
+        val root = findViewById<View>(android.R.id.content)
+        root.setBackgroundColor(page)
+        intArrayOf(R.id.panelTest, R.id.panelPlot, R.id.panelSettings, R.id.panelChart,
+            R.id.panelFilter, R.id.panelDns, R.id.panelPacketLoss).forEach {
+            findViewById<View>(it)?.setBackgroundColor(page)
+        }
+        val tabBar = findViewById<View>(R.id.tabTest).parent?.parent as? View
+        tabBar?.setBackgroundColor(Color.parseColor(if (dark) "#101D30" else "#FFFFFF"))
+        // Keep primary content readable in both palettes without washing out the tab labels.
+        if (dark) {
+            val lightText = Color.parseColor("#E6EDF7")
+            fun recolor(view: View) {
+                if (view is TextView) {
+                    view.setTextColor(lightText)
+                    if (view is EditText) view.setHintTextColor(Color.parseColor("#91A4BB"))
+                }
+                if (view is android.view.ViewGroup) {
+                    for (i in 0 until view.childCount) recolor(view.getChildAt(i))
+                }
+            }
+            recolor(root)
+            val buttons = listOf(R.id.btnStart, R.id.btnHistory, R.id.btnCompareTests, R.id.btnShareTest,
+                R.id.btnPlot, R.id.btnSharePlot, R.id.btnFilterCheck, R.id.btnCompareFilter,
+                R.id.btnShareFilter, R.id.btnDnsLookup, R.id.btnAddDnsServer, R.id.btnUdpLoss,
+                R.id.btnUploadLoss, R.id.btnSave, R.id.btnReset)
+            buttons.forEach { findViewById<Button>(it)?.apply {
+                backgroundTintList = ColorStateList.valueOf(Color.parseColor("#26364D"))
+                setTextColor(lightText)
+            } }
+            listOf(R.id.btnStart, R.id.btnPlot, R.id.btnFilterCheck, R.id.btnDnsLookup,
+                R.id.btnUdpLoss, R.id.btnUploadLoss, R.id.btnSave).forEach {
+                findViewById<Button>(it)?.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#0E9F9A"))
+            }
+            intArrayOf(R.id.tvStatus, R.id.tvLog, R.id.tvFilterResult, R.id.tvDnsLookupResult,
+                R.id.tvUdpLossResult, R.id.tvUploadLossResult, R.id.tvTable, R.id.tvPlotInfo).forEach {
+                findViewById<View>(it)?.setBackgroundColor(Color.parseColor("#162338"))
+            }
+        }
+        showPanel(0)
+    }
+
+    private fun showPanel(i: Int) {
+        val panels = arrayOf(panelTest, panelPlot, panelSettings, panelChart, panelFilter, panelDns, panelPacketLoss)
+        panels.forEachIndexed { index, panel ->
+            if (index == i) {
+                panel.alpha = 0f
+                panel.visibility = View.VISIBLE
+                panel.animate().alpha(1f).setDuration(160L).start()
+            } else {
+                panel.animate().cancel()
+                panel.visibility = View.GONE
+                panel.alpha = 1f
+            }
+        }
+        getSharedPreferences("netq", MODE_PRIVATE).edit().putInt("last_panel", i).apply()
+
+        val dark = isDarkTheme()
+        val tabIds = intArrayOf(R.id.tabTest, R.id.tabPlot, R.id.tabSettings, R.id.tabChart,
+            R.id.tabFilter, R.id.tabDns, R.id.tabPacketLoss)
+        tabIds.forEachIndexed { index, id ->
+            findViewById<Button>(id)?.apply {
+                val selected = index == i
+                backgroundTintList = ColorStateList.valueOf(Color.parseColor(
+                    when {
+                        selected -> "#087F8C"
+                        dark -> "#26364D"
+                        else -> "#EAF0F6"
+                    }
+                ))
+                setTextColor(Color.parseColor(
+                    when {
+                        selected -> "#FFFFFF"
+                        dark -> "#DCE8F4"
+                        else -> "#34465C"
+                    }
+                ))
+                alpha = 1f
+            }
+        }
+        // Keep the active tab fully visible when the navigation strip is horizontally scrolled.
+        val activeTab = findViewById<Button>(tabIds[i])
+        activeTab.post {
+            val horizontal = (activeTab.parent?.parent as? android.widget.HorizontalScrollView)
+            horizontal?.smoothScrollTo(
+                (activeTab.left - (horizontal.width - activeTab.width) / 2).coerceAtLeast(0),
+                0
+            )
+        }
+    }
+
+    private data class PublicIperfServer(val host: String, val port: Int, val location: String)
+
+    // فهرست اولیه سرورهای عمومی که در فهرست‌های عمومی، پشتیبانی UDP برای آن‌ها ذکر شده است.
+    // وضعیت دسترسی هر سرور در زمان اجرای آزمون دوباره بررسی می‌شود.
+    private val publicIperfServers = listOf(
+        PublicIperfServer("iperf.online.net", 5200, "فرانسه - پاریس"),
+        PublicIperfServer("ping.online.net", 5200, "فرانسه - ویتری"),
+        PublicIperfServer("iperf3-vie-at.alwyzon.net", 5201, "اتریش - وین"),
+        PublicIperfServer("185.180.12.40", 5201, "اتریش - وین"),
+        PublicIperfServer("37.19.203.1", 5201, "بلغارستان - صوفیه"),
+        PublicIperfServer("138.199.14.66", 5201, "فرانسه - مارسی"),
+        PublicIperfServer("speedtest.uninet.az", 5201, "آذربایجان - باکو")
+    )
+
+
+    private fun isEnglishUi(): Boolean =
+        AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en")
+
+    private fun setupManualIperfServerManager() {
+        val english = isEnglishUi()
+        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+        manualIperfServers.clear()
+        val raw = prefs.getString("iperf_manual_servers", null)
+        if (!raw.isNullOrBlank()) {
+            try {
+                val arr = JSONArray(raw)
+                for (i in 0 until arr.length()) {
+                    val item = arr.optJSONObject(i) ?: continue
+                    val name = item.optString("name").trim()
+                    val host = item.optString("host").trim()
+                    val port = item.optInt("port", -1)
+                    if (name.isNotBlank() && host.isNotBlank() && port in 1..65535) {
+                        manualIperfServers.add(ManualIperfServer(name, host, port))
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+        if (manualIperfServers.isEmpty()) {
+            val host = prefs.getString("iperf_host", "speedtest.uninet.az") ?: "speedtest.uninet.az"
+            val port = prefs.getInt("iperf_port", 5200).coerceIn(1, 65535)
+            manualIperfServers.add(ManualIperfServer("My first server", host, port))
+            persistManualIperfServers()
+        }
+        selectedManualIperfServer = prefs.getInt("iperf_manual_selected", 0).coerceIn(0, manualIperfServers.lastIndex)
+
+        val container = etIperfPort.parent as? LinearLayout ?: return
+        val index = container.indexOfChild(etIperfPort) + 1
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, (6 * resources.displayMetrics.density).toInt(), 0, 0)
+        }
+        spManualIperfServer = Spinner(this)
+        panel.addView(spManualIperfServer, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, (52 * resources.displayMetrics.density).toInt()
+        ))
+        manualIperfActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val add = Button(this).apply { text = if (english) "Add server" else "افزودن سرور" }
+        val edit = Button(this).apply { text = if (english) "Edit" else "ویرایش" }
+        val remove = Button(this).apply { text = if (english) "Delete" else "حذف" }
+        listOf(add, edit, remove).forEach { button ->
+            manualIperfActions.addView(button, LinearLayout.LayoutParams(0, (46 * resources.displayMetrics.density).toInt(), 1f))
+        }
+        panel.addView(manualIperfActions)
+        container.addView(panel, index)
+
+        add.setOnClickListener { showManualIperfDialog(null) }
+        edit.setOnClickListener {
+            manualIperfServers.getOrNull(selectedManualIperfServer)?.let { showManualIperfDialog(it) }
+        }
+        remove.setOnClickListener { removeManualIperfServer() }
+        spManualIperfServer.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (position !in manualIperfServers.indices) return
+                selectedManualIperfServer = position
+                val selected = manualIperfServers[position]
+                etIperfHost.setText(selected.host)
+                etIperfPort.setText(selected.port.toString())
+                prefs.edit().putInt("iperf_manual_selected", position).apply()
+            }
+        }
+        refreshManualIperfUi()
+    }
+
+    private fun persistManualIperfServers() {
+        val arr = JSONArray()
+        manualIperfServers.forEach { server ->
+            arr.put(JSONObject().put("name", server.name).put("host", server.host).put("port", server.port))
+        }
+        getSharedPreferences("netq", MODE_PRIVATE).edit()
+            .putString("iperf_manual_servers", arr.toString())
+            .putInt("iperf_manual_selected", selectedManualIperfServer.coerceIn(0, maxOf(0, manualIperfServers.lastIndex)))
+            .apply()
+    }
+
+    private fun refreshManualIperfUi() {
+        if (!::spManualIperfServer.isInitialized) return
+        val manual = !cbAutoIperfServer.isChecked
+        spManualIperfServer.visibility = if (manual) View.VISIBLE else View.GONE
+        manualIperfActions.visibility = if (manual) View.VISIBLE else View.GONE
+        etIperfHost.visibility = if (manual) View.GONE else View.VISIBLE
+        etIperfPort.visibility = if (manual) View.GONE else View.VISIBLE
+        spManualIperfServer.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item,
+            manualIperfServers.map { it.name + " — " + it.host + ":" + it.port }
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        if (manualIperfServers.isNotEmpty()) {
+            selectedManualIperfServer = selectedManualIperfServer.coerceIn(0, manualIperfServers.lastIndex)
+            spManualIperfServer.setSelection(selectedManualIperfServer, false)
+            val selected = manualIperfServers[selectedManualIperfServer]
+            etIperfHost.setText(selected.host)
+            etIperfPort.setText(selected.port.toString())
+        }
+    }
+
+    private fun showManualIperfDialog(existing: ManualIperfServer?) {
+        val english = isEnglishUi()
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 8, 24, 0)
+        }
+        val name = EditText(this).apply { hint = if (english) "Server name" else "نام سرور"; setText(existing?.name ?: "") }
+        val host = EditText(this).apply {
+            hint = if (english) "Host / IP" else "هاست یا IP"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setText(existing?.host ?: "")
+        }
+        val port = EditText(this).apply {
+            hint = if (english) "Port (default 5201)" else "پورت (پیش‌فرض 5201)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(existing?.port?.toString() ?: "5201")
+        }
+        form.addView(name); form.addView(host); form.addView(port)
+        AlertDialog.Builder(this)
+            .setTitle(if (existing == null) { if (english) "Add iperf3 server" else "افزودن سرور iperf3" } else { if (english) "Edit iperf3 server" else "ویرایش سرور iperf3" })
+            .setView(form)
+            .setNegativeButton(if (english) "Cancel" else "انصراف", null)
+            .setPositiveButton(if (english) "Save" else "ذخیره") { _, _ ->
+                val n = name.text.toString().trim()
+                val h = host.text.toString().trim()
+                val p = port.text.toString().trim().toIntOrNull()
+                if (n.isBlank() || h.isBlank() || p == null || p !in 1..65535) {
+                    Toast.makeText(this, if (english) "Enter a name, valid host and port (1–65535)." else "نام، هاست و پورت معتبر (۱ تا ۶۵۵۳۵) وارد کنید.", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                if (existing == null) {
+                    manualIperfServers.add(ManualIperfServer(n, h, p))
+                    selectedManualIperfServer = manualIperfServers.lastIndex
+                } else {
+                    val oldIndex = manualIperfServers.indexOf(existing)
+                    if (oldIndex >= 0) {
+                        manualIperfServers[oldIndex] = ManualIperfServer(n, h, p)
+                        selectedManualIperfServer = oldIndex
+                    }
+                }
+                persistManualIperfServers()
+                refreshManualIperfUi()
+                spManualIperfServer.setSelection(selectedManualIperfServer)
+            }.show()
+    }
+
+    private fun removeManualIperfServer() {
+        if (manualIperfServers.size <= 1) {
+            Toast.makeText(this, "At least one manual server must remain.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val selected = manualIperfServers.getOrNull(selectedManualIperfServer) ?: return
+        AlertDialog.Builder(this)
+            .setTitle(if (isEnglishUi()) "Delete server" else "حذف سرور")
+            .setMessage(if (isEnglishUi()) "Delete " + selected.name + "?" else "سرور «" + selected.name + "» حذف شود؟")
+            .setNegativeButton(if (isEnglishUi()) "Cancel" else "انصراف", null)
+            .setPositiveButton(if (isEnglishUi()) "Delete" else "حذف") { _, _ ->
+                manualIperfServers.removeAt(selectedManualIperfServer)
+                selectedManualIperfServer = selectedManualIperfServer.coerceAtMost(manualIperfServers.lastIndex)
+                persistManualIperfServers()
+                refreshManualIperfUi()
+            }.show()
+    }
+
+    private fun manualIperfFailure(error: Exception, label: String): String {
+        if (cbAutoIperfServer.isChecked) return label + ": " + (error.message ?: "Unknown error")
+        val selected = manualIperfServers.getOrNull(selectedManualIperfServer)
+        return label + " failed on selected manual server.\nServer: " +
+            (selected?.host ?: etIperfHost.text.toString()) + ":" +
+            (selected?.port?.toString() ?: etIperfPort.text.toString()) +
+            "\nError: " + (error.message ?: "Unknown error") +
+            "\nManual mode: no other server and no DNS fallback were attempted."
+    }
+
+    private suspend fun runIperfUdpWithFallback(bitrate: String, durationSeconds: Int): Net.IperfUdpResult {
+        if (!cbAutoIperfServer.isChecked) {
+            val (host, port) = iperfServer()
+            return withContext(Dispatchers.IO) { Net.iperfUdpTest(this@MainActivity, host, port, bitrate, durationSeconds) }
+        }
+
+        val errors = ArrayList<String>()
+        for (server in publicIperfServers) {
+            val tcp = withContext(Dispatchers.IO) { Net.tcpOnce(server.host, server.port, 2200) }
+            if (tcp == null) {
+                errors.add("${server.location} (${server.host}:${server.port}): پورت TCP در دسترس نیست")
+                continue
+            }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    Net.iperfUdpTest(this@MainActivity, server.host, server.port, bitrate, durationSeconds)
+                }
+                etIperfHost.setText(server.host)
+                etIperfPort.setText(server.port.toString())
+                getSharedPreferences("netq", MODE_PRIVATE).edit()
+                    .putString("iperf_host", server.host).putInt("iperf_port", server.port).apply()
+                return result
+            } catch (e: Exception) {
+                errors.add("${server.location} (${server.host}:${server.port}): ${e.message ?: "خطای اتصال"}")
+            }
+        }
+        throw IllegalStateException("هیچ‌یک از سرورهای عمومی در این اتصال آزمون iperf3 را کامل نکردند.\n" +
+            errors.joinToString("\n") + "\nحالت خودکار را خاموش کنید و آدرس سرور اختصاصی خود را وارد کنید.")
+    }
     private fun iperfServer(): Pair<String, Int> {
+        if (!cbAutoIperfServer.isChecked) {
+            val selected = manualIperfServers.getOrNull(selectedManualIperfServer)
+                ?: throw IllegalStateException("Select a manual iperf3 server.")
+            require(selected.host.isNotBlank() && selected.port in 1..65535) { "Invalid selected server settings." }
+            return selected.host to selected.port
+        }
         val host = etIperfHost.text.toString().trim()
         val port = etIperfPort.text.toString().trim().toIntOrNull()
         require(host.isNotBlank()) { "آدرس سرور iperf3 را وارد کنید." }
@@ -332,19 +863,53 @@ class MainActivity : AppCompatActivity() {
         return host to port
     }
 
+    private suspend fun runDnsUdpFallback(): Pair<String, Net.UdpLossResult> = withContext(Dispatchers.IO) {
+        val servers = listOf(
+            "5.200.200.200" to "DNS مخابرات",
+            "2.189.44.44" to "DNS زیرساخت",
+            "1.1.1.1" to "Cloudflare DNS",
+            "8.8.8.8" to "Google DNS"
+        )
+        val results = servers.map { (host, label) ->
+            val result = Net.udpLossTest(host, "example.com", 20, 1200)
+            Triple(host, label, result)
+        }
+        val best = results.maxByOrNull { it.third.received }
+            ?: throw IllegalStateException("هیچ DNS برای آزمون UDP انتخاب نشد.")
+        if (best.third.received == 0) {
+            throw IllegalStateException("iperf3 در دسترس نبود و هیچ‌یک از DNSها نیز از طریق UDP/53 پاسخ ندادند. احتمال محدودیت UDP/53 وجود دارد.")
+        }
+        best.first to best.third
+    }
+
+    private fun formatDnsUdpFallback(host: String, result: Net.UdpLossResult, purpose: String): String {
+        return "روش جایگزین: UDP/53 DNS Request-Response\n" +
+            "سرور پاسخ‌گو: $host:53\n" +
+            "درخواست‌ها: ${result.sent}\nپاسخ‌های دریافت‌شده: ${result.received}\n" +
+            "عدم دریافت پاسخ: ${"%.2f".format(Locale.US, result.loss)}٪\n" +
+            "میانگین RTT پاسخ‌ها: ${"%.2f".format(Locale.US, result.avgRttMs)} ms\n" +
+            "Jitter پاسخ‌ها: ${"%.2f".format(Locale.US, result.jitterMs)} ms\n\n" +
+            "توجه: این روش دسترسی و کیفیت تبادل DNS روی UDP/53 را می‌سنجد و جایگزین اندازه‌گیری عمومی iperf3 یا Packet Loss تمام ترافیک UDP نیست. " +
+            "برای آزمون $purpose یک سرور iperf3 اختصاصی لازم است."
+    }
+
     private fun runStandaloneUdpLoss() {
         val button = findViewById<Button>(R.id.btnUdpLoss)
         button.isEnabled = false
         tvUdpLossResult.text = "آزمون واقعی iperf3 UDP با نرخ 1 Mbps در حال اجراست..."
         lifecycleScope.launch {
             try {
-                val (host, port) = iperfServer()
-                val result = withContext(Dispatchers.IO) {
-                    Net.iperfUdpTest(this@MainActivity, host, port, "1M", 10)
-                }
+                val result = runIperfUdpWithFallback("1M", 10)
                 tvUdpLossResult.text = "سرور: ${result.host}:${result.port}\nنرخ هدف: ${result.bitrate}\nبسته‌های گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ واقعی: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps"
             } catch (e: Exception) {
-                tvUdpLossResult.text = "آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}\nممکن است سرور عمومی در دسترس نباشد یا UDP/5201 را محدود کرده باشد."
+                tvUdpLossResult.text = if (cbAutoIperfServer.isChecked) {
+                    try {
+                        val (host, result) = runDnsUdpFallback()
+                        "سرورهای عمومی iperf3 در دسترس نبودند.\n\n" + formatDnsUdpFallback(host, result, "Packet Loss")
+                    } catch (fallback: Exception) {
+                        "آزمون ناموفق بود.\niperf3: " + (e.message ?: "خطا") + "\nآزمون جایگزین: " + (fallback.message ?: "خطا")
+                    }
+                } else manualIperfFailure(e, "Packet Loss")
             } finally { button.isEnabled = true }
         }
     }
@@ -355,89 +920,132 @@ class MainActivity : AppCompatActivity() {
         tvUploadLossResult.text = "آزمون UDP Upload با نرخ هدف 10 Mbps در حال اجراست..."
         lifecycleScope.launch {
             try {
-                val (host, port) = iperfServer()
-                val result = withContext(Dispatchers.IO) {
-                    Net.iperfUdpTest(this@MainActivity, host, port, "10M", 15)
-                }
+                val result = runIperfUdpWithFallback("10M", 15)
                 tvUploadLossResult.text = "آزمون UDP Upload به سرور ${result.host}:${result.port}\nنرخ هدف ارسال: ${result.bitrate}\nبسته‌های ارسالی/گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss در مسیر Upload: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ دریافت‌شده در سرور: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps\n\nاین آزمون افت بسته‌های UDP ارسالی از گوشی به سرور را می‌سنجد؛ آزمون اشباع هم‌زمان TCP نیست."
             } catch (e: Exception) {
-                tvUploadLossResult.text = "آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}\nممکن است سرور عمومی در دسترس نباشد یا UDP/5201 را محدود کرده باشد."
+                tvUploadLossResult.text = if (cbAutoIperfServer.isChecked) {
+                    try {
+                        val (host, result) = runDnsUdpFallback()
+                        "سرورهای عمومی iperf3 در دسترس نبودند.\n\n" +
+                            formatDnsUdpFallback(host, result, "Upload") +
+                            "\n\nاین نتیجه Packet Loss آپلود را نشان نمی‌دهد؛ برای سنجش یک‌طرفه آپلود باید سرور iperf3 اختصاصی در دسترس باشد."
+                    } catch (fallback: Exception) {
+                        "آزمون ناموفق بود.\niperf3: " + (e.message ?: "خطا") + "\nآزمون جایگزین: " + (fallback.message ?: "خطا")
+                    }
+                } else manualIperfFailure(e, "UDP Upload")
             } finally { button.isEnabled = true }
         }
     }
 
     private fun checkFilterAccess() {
         val presets = listOf("facebook.com", "instagram.com", "youtube.com", "t.me", "x.com", "whatsapp.com", "google.com")
-        val custom = etFilterDomain.text.toString().trim()
-            .removePrefix("https://").removePrefix("http://").substringBefore("/")
-        val domain = if (custom.isNotBlank()) custom else presets.getOrElse(spFilterSite.selectedItemPosition) { presets.first() }
-        if (domain.isBlank() || !domain.contains(".")) {
-            Toast.makeText(this, "یک دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show()
-            return
+        val custom = etFilterDomain.text.toString().trim().removePrefix("https://").removePrefix("http://").substringBefore("/")
+        val domain = (if (custom.isNotBlank()) custom else presets.getOrElse(spFilterSite.selectedItemPosition) { presets.first() }).trim().trimEnd('.').lowercase(Locale.ROOT)
+        if (domain.isBlank() || !domain.contains(".") || domain.any { it.isWhitespace() }) {
+            Toast.makeText(this, "یک دامنه معتبر وارد کنید", Toast.LENGTH_SHORT).show(); return
         }
         btnFilterCheck.isEnabled = false
         filterProgress.visibility = View.VISIBLE
-        tvFilterResult.text = "در حال بررسی $domain …\nلطفاً تا پایان آزمون صبر کنید."
-        lifecycleScope.launch {
-            try {
-                val dnsMs = withContext(Dispatchers.IO) {
-                    try {
-                        val start = System.nanoTime()
-                        InetAddress.getAllByName(domain)
-                        (System.nanoTime() - start) / 1_000_000
-                    } catch (_: Exception) { null }
+        val steps = linkedMapOf("DNS سیستم" to "در انتظار", "DNS جایگزین 1.1.1.1" to "در انتظار", "DNS جایگزین 8.8.8.8" to "در انتظار", "DNS مخابرات 5.200.200.200" to "در انتظار", "DNS زیرساخت 2.189.44.44" to "در انتظار", "TCP/443 مقصد" to "در انتظار", "TCP/443 کنترلی" to "در انتظار", "TLS با SNI" to "در انتظار", "HTTPS" to "در انتظار", "CDN و اطلاعات IP" to "در انتظار")
+        fun renderProgress() {
+            tvFilterResult.text = buildString {
+                append("بررسی مرحله‌ای دامنه: $domain\n")
+                append("✓ یعنی آزمون همان لایه موفق شده است؛ موفقیت یک لایه سلامت همه لایه‌ها را ثابت نمی‌کند.\n\n")
+                steps.forEach { (name, status) ->
+                    val mark = when (status) { "موفق" -> "✓"; "ناموفق" -> "✕"; "در حال اجرا" -> "…"; else -> "○" }
+                    append("$mark  $name — $status\n")
                 }
-                val targetTcp = withContext(Dispatchers.IO) { Net.tcpOnce(domain, 443, 5000) }
-                val controlTcp = withContext(Dispatchers.IO) { Net.tcpOnce("1.1.1.1", 443, 5000) }
-                val https = withContext(Dispatchers.IO) { Net.httpCheck("https://$domain", false) }
-                val infra = withContext(Dispatchers.IO) { Net.inspectSiteInfrastructure(domain) }
-                val verdict = when {
-                    https.code != null && https.code in 200..399 -> "قابل دسترس"
-                    dnsMs == null && controlTcp != null -> "احتمال اختلال یا محدودیت DNS"
-                    targetTcp == null && controlTcp != null -> "احتمال محدودیت اختصاصی مقصد یا مسیر دسترسی"
-                    targetTcp != null && https.code == null -> "TCP برقرار است؛ مشکل در TLS یا لایه HTTPS محتمل است"
-                    https.code == 403 || https.code == 451 -> "پاسخ محدودکننده HTTP دریافت شد؛ علت می‌تواند سیاست سرور یا فیلترینگ باشد"
-                    else -> "نتیجه نامشخص؛ شواهد برای تشخیص فیلترینگ کافی نیست"
-                }
-                val colorHint = when {
-                    https.code != null && https.code in 200..399 -> "وضعیت: قابل دسترس"
-                    dnsMs == null || targetTcp == null -> "وضعیت: نیازمند بررسی"
-                    else -> "وضعیت: اختلال در لایه بالاتر"
-                }
-                tvFilterResult.text = buildString {
-                    append("دامنه: $domain\n\n")
-                    append("نتیجه: $verdict\n\n")
-                    append("DNS: ").append(dnsMs?.let { "موفق (${it}ms)" } ?: "ناموفق").append("\n")
-                    append("TCP/443 مقصد: ").append(targetTcp?.let { "موفق (${f0(it)}ms)" } ?: "ناموفق").append("\n")
-                    append("TCP/443 مقصد کنترلی 1.1.1.1: ").append(controlTcp?.let { "موفق (${f0(it)}ms)" } ?: "ناموفق").append("\n")
-                    append("HTTPS: ").append(https.code?.toString() ?: "بدون پاسخ (${https.err ?: "خطا"})").append("\n")
-                    append("زمان پاسخ HTTPS: ${https.ms}ms\n\n")
-                    append("── اطلاعات IP و CDN ──\n")
-                    append("IPهای پاسخ DNS: ").append(infra.ips.joinToString(", ").ifBlank { "دریافت نشد" }).append("\n")
-                    append("CDN / شبکه محافظ: ${infra.cdn}\n")
-                    infra.serverHeader?.let { append("Server header: $it\n") }
-                    infra.org?.let { append("سازمان/شبکه IP: $it\n") }
-                    infra.country?.let { append("کشور تخمینی IP: $it\n") }
-                    infra.city?.let { append("شهر تخمینی IP: $it\n") }
-                    infra.cfRay?.let { append("CF-Ray: $it\n") }
-                    infra.colo?.let { append("Cloudflare PoP (کد مرکز پاسخ‌گو): $it\n") }
-                    append(infra.geoNote ?: "").append("\n\n")
-                    append("تفسیر: $colorHint\n\n")
-                    append("توجه: موفق بودن Ping یا TCP به معنی نبود فیلترینگ نیست. این آزمون فقط از اتصال فعلی گوشی استفاده می‌کند. برای مقایسه، آن را روی اینترنت مخابرات، همراه اول و سایر اپراتورها جداگانه اجرا کنید. نتیجه قطعی فیلترینگ فقط با مقایسه چند مسیر و بررسی دقیق‌تر قابل اعلام است.")
-                    append("\n\nاپراتور ثبت‌شده: ").append(spFilterOperator.selectedItem.toString())
-                }
-                getSharedPreferences("netq", MODE_PRIVATE).edit()
-                    .putString("filter_result_${spFilterOperator.selectedItem}", tvFilterResult.text.toString())
-                    .apply()
-            } catch (e: Exception) {
-                tvFilterResult.text = "خطا در اجرای آزمون: ${e.message ?: e.javaClass.simpleName}"
-            } finally {
-                filterProgress.visibility = View.GONE
-                btnFilterCheck.isEnabled = true
             }
         }
+        fun setStep(name: String, status: String) { steps[name] = status; renderProgress() }
+        renderProgress()
+        lifecycleScope.launch {
+            try {
+                setStep("DNS سیستم", "در حال اجرا")
+                val dnsMs = withContext(Dispatchers.IO) { try { val t = System.nanoTime(); InetAddress.getAllByName(domain); (System.nanoTime() - t) / 1_000_000 } catch (_: Exception) { null } }
+                setStep("DNS سیستم", if (dnsMs != null) "موفق" else "ناموفق")
+                setStep("DNS جایگزین 1.1.1.1", "در حال اجرا")
+                val dnsCf = withContext(Dispatchers.IO) { Net.dnsQuery("1.1.1.1", domain, 3000) }
+                setStep("DNS جایگزین 1.1.1.1", if (dnsCf != null && dnsCf >= 0) "موفق" else "ناموفق")
+                setStep("DNS جایگزین 8.8.8.8", "در حال اجرا")
+                val dnsGoogle = withContext(Dispatchers.IO) { Net.dnsQuery("8.8.8.8", domain, 3000) }
+                setStep("DNS جایگزین 8.8.8.8", if (dnsGoogle != null && dnsGoogle >= 0) "موفق" else "ناموفق")
+                setStep("DNS مخابرات 5.200.200.200", "در حال اجرا")
+                val dnsMokhaberat = withContext(Dispatchers.IO) { Net.dnsQuery("5.200.200.200", domain, 3500) }
+                setStep("DNS مخابرات 5.200.200.200", if (dnsMokhaberat != null && dnsMokhaberat >= 0) "موفق" else "ناموفق")
+                setStep("DNS زیرساخت 2.189.44.44", "در حال اجرا")
+                val dnsInfrastructure = withContext(Dispatchers.IO) { Net.dnsQuery("2.189.44.44", domain, 3500) }
+                setStep("DNS زیرساخت 2.189.44.44", if (dnsInfrastructure != null && dnsInfrastructure >= 0) "موفق" else "ناموفق")
+                setStep("TCP/443 مقصد", "در حال اجرا")
+                val tcp = withContext(Dispatchers.IO) { Net.tcpOnce(domain, 443, 5000) }
+                setStep("TCP/443 مقصد", if (tcp != null) "موفق" else "ناموفق")
+                setStep("TCP/443 کنترلی", "در حال اجرا")
+                val control = withContext(Dispatchers.IO) { Net.tcpOnce("1.1.1.1", 443, 5000) }
+                setStep("TCP/443 کنترلی", if (control != null) "موفق" else "ناموفق")
+                setStep("TLS با SNI", "در حال اجرا")
+                val tls = withContext(Dispatchers.IO) { Net.tlsOnce(domain, 6000) }
+                setStep("TLS با SNI", if (tls != null) "موفق" else "ناموفق")
+                setStep("HTTPS", "در حال اجرا")
+                val https = withContext(Dispatchers.IO) { Net.httpCheck("https://$domain", false) }
+                setStep("HTTPS", if (https.code != null) "موفق" else "ناموفق")
+                setStep("CDN و اطلاعات IP", "در حال اجرا")
+                val infra = withContext(Dispatchers.IO) { Net.inspectSiteInfrastructure(domain) }
+                setStep("CDN و اطلاعات IP", if (infra.ips.isNotEmpty() || infra.cname != null || infra.evidence.isNotEmpty()) "موفق" else "نامشخص")
+                val verdict = when {
+                    https.code != null && https.code in 200..399 -> "سایت از مسیر فعلی قابل دسترس است"
+                    listOf(dnsMs, dnsCf, dnsGoogle, dnsMokhaberat, dnsInfrastructure).all { it == null || it < 0 } && control != null -> "احتمال اختلال DNS؛ هیچ‌یک از DNSهای آزمایش‌شده پاسخ معتبر ندادند"
+                    tcp == null && control != null -> "احتمال محدودیت یا اختلال اختصاصی در مسیر مقصد؛ اتصال کنترلی برقرار است"
+                    tcp != null && tls == null -> "TCP برقرار است اما TLS/SNI ناموفق است؛ احتمال اختلال TLS، گواهی یا بازرسی مسیر"
+                    https.code == 403 || https.code == 451 -> "سرور پاسخ HTTP محدودکننده داده؛ به‌تنهایی اثبات فیلترینگ شبکه نیست"
+                    else -> "نتیجه نامشخص؛ شواهد کافی برای اعلام فیلترینگ قطعی وجود ندارد"
+                }
+                val report = buildString {
+                    append("گزارش مرحله‌ای دسترسی\nدامنه: $domain\nنتیجه: $verdict\n\nوضعیت آزمون‌ها:\n")
+                    steps.forEach { (name, status) -> append((if (status == "موفق") "✓" else if (status == "ناموفق") "✕" else "—") + "  $name: $status\n") }
+                    append("\nDNS سیستم: ").append(dnsMs?.let { "موفق ($it ms)" } ?: "ناموفق").append("\n")
+                    append("DNS 1.1.1.1: ").append(dnsCf?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
+                    append("DNS 8.8.8.8: ").append(dnsGoogle?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
+                    append("DNS مخابرات 5.200.200.200: ").append(dnsMokhaberat?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
+                    append("DNS زیرساخت 2.189.44.44: ").append(dnsInfrastructure?.let { if (it >= 0) "موفق ($it ms)" else "پاسخ نامعتبر" } ?: "بدون پاسخ").append("\n")
+                    append("TCP/443 مقصد: ").append(tcp?.let { "موفق (${f0(it)} ms)" } ?: "ناموفق").append("\n")
+                    append("TCP کنترلی 1.1.1.1: ").append(control?.let { "موفق (${f0(it)} ms)" } ?: "ناموفق").append("\n")
+                    append("TLS/SNI: ").append(tls?.let { "موفق ($it ms)" } ?: "ناموفق").append("\n")
+                    append("HTTPS: ").append(https.code?.toString() ?: "بدون پاسخ (${https.err ?: "خطا"})").append(" | زمان: ${https.ms} ms\n")
+                    append("\n── اطلاعات CDN و IP ──\nCDN: ${infra.cdn}\n")
+                    append("IPهای قابل مشاهده: ").append(infra.ips.joinToString(", ").ifBlank { "دریافت نشد" }).append("\n")
+                    infra.cname?.let { append("CNAME: $it\n") }
+                    infra.asn?.let { append("ASN: $it\n") }
+                    infra.org?.let { append("مالک شبکه: $it\n") }
+                    infra.country?.let { append("کشور تقریبی IP لبه: $it\n") }
+                    infra.city?.let { append("شهر تقریبی IP لبه: $it\n") }
+                    infra.serverHeader?.let { append("Server: $it\n") }
+                    infra.cfRay?.let { append("CF-Ray: $it\n") }
+                    infra.colo?.let { append("Cloudflare PoP: $it\n") }
+                    if (infra.evidence.isNotEmpty()) { append("شواهد CDN:\n"); infra.evidence.forEach { append("• $it\n") } }
+                    append("\n${infra.geoNote ?: ""}\n")
+                    append("\nموفقیت DNS فقط پاسخ‌گویی DNS را نشان می‌دهد و به‌تنهایی نبود فیلترینگ در TCP، TLS یا HTTP را ثابت نمی‌کند.")
+                    append("\nDNSهای جایگزین از همین اتصال آزمایش شده‌اند و ممکن است دسترسی مستقیم به آن‌ها مسدود باشد.")
+                    append("\nاپراتور ثبت‌شده: ").append(spFilterOperator.selectedItem.toString())
+                }
+                tvFilterResult.text = report
+                val prefs = getSharedPreferences("netq", MODE_PRIVATE)
+                val history = try { JSONArray(prefs.getString("filter_history", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+                val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
+                val opName = spFilterOperator.selectedItem.toString()
+                val testName = etFilterTestName.text.toString().trim().ifBlank { "$opName - $domain - $stamp" }
+                val item = JSONObject().apply {
+                    put("name", testName); put("time", stamp); put("operator", opName)
+                    put("network", opName); put("domain", domain); put("report", report)
+                }
+                val next = JSONArray().put(item)
+                for (i in 0 until minOf(history.length(), 19)) next.put(history.getJSONObject(i))
+                prefs.edit().putString("filter_history", next.toString())
+                    .putString("filter_result_$opName", report).apply()
+            } catch (e: Exception) {
+                tvFilterResult.text = "خطا در اجرای آزمون: ${e.message ?: e.javaClass.simpleName}"
+            } finally { filterProgress.visibility = View.GONE; btnFilterCheck.isEnabled = true }
+        }
     }
-
 
     private fun refreshDnsServers() {
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
@@ -585,28 +1193,49 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun compareFilterOperators() {
-        val a = spFilterCompareA.selectedItem.toString()
-        val b = spFilterCompareB.selectedItem.toString()
-        if (a == b) {
-            Toast.makeText(this, "دو اپراتور متفاوت انتخاب کنید", Toast.LENGTH_SHORT).show()
-            return
-        }
+    private fun compareFilterTests() {
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
-        val ra = prefs.getString("filter_result_$a", null)
-        val rb = prefs.getString("filter_result_$b", null)
-        val report = buildString {
-            append("مقایسه بررسی دسترسی دو اپراتور\n\n")
-            append("اپراتور اول: $a\n")
-            append(ra ?: "برای این اپراتور هنوز تستی ذخیره نشده است.")
-            append("\n\n────────────────────\n\n")
-            append("اپراتور دوم: $b\n")
-            append(rb ?: "برای این اپراتور هنوز تستی ذخیره نشده است.")
-            append("\n\nتوجه: تست‌ها باید روی اتصال واقعی همان اپراتور اجرا شده باشند؛ انتخاب نام اپراتور به‌تنهایی مسیر اینترنت را تغییر نمی‌دهد.")
+        val arr = try { JSONArray(prefs.getString("filter_history", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        if (arr.length() < 2) {
+            AlertDialog.Builder(this).setTitle("مقایسه تست‌ها")
+                .setMessage("برای مقایسه ابتدا حداقل دو تست فیلترینگ اجرا کنید.")
+                .setPositiveButton("متوجه شدم", null).show(); return
         }
-        AlertDialog.Builder(this).setTitle("مقایسه اپراتورها").setMessage(report)
-            .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
-            .setNegativeButton("بستن", null).show()
+        val labels = Array(arr.length()) { i ->
+            val item = arr.getJSONObject(i)
+            "${item.optString("name").ifBlank { item.optString("operator") }} | ${item.optString("domain")} | ${item.optString("time")}"
+        }
+        val selected = BooleanArray(arr.length())
+        val dialog = AlertDialog.Builder(this).setTitle("انتخاب تست‌ها برای مقایسه")
+            .setMultiChoiceItems(labels, selected) { _, which, checked -> selected[which] = checked }
+            .setPositiveButton("مقایسه", null)
+            .setNeutralButton("تغییر نام") { _, _ ->
+                val chosen = selected.indices.filter { selected[it] }
+                if (chosen.size == 1) renameFilterTest(arr, chosen[0])
+                else Toast.makeText(this, "برای تغییر نام فقط یک تست را انتخاب کنید.", Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("بستن", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val chosen = selected.indices.filter { selected[it] }
+                if (chosen.size < 2) Toast.makeText(this, "حداقل دو تست انتخاب کنید.", Toast.LENGTH_SHORT).show()
+                else { dialog.dismiss(); showSelectedTestsComparison(arr, chosen) }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun renameFilterTest(arr: JSONArray, index: Int) {
+        val item = arr.optJSONObject(index) ?: return
+        val field = EditText(this).apply { setSingleLine(true); setText(item.optString("name")); setSelection(text.length) }
+        AlertDialog.Builder(this).setTitle("تغییر نام تست").setView(field)
+            .setPositiveButton("ذخیره") { _, _ ->
+                val value = field.text.toString().trim()
+                if (value.isNotBlank()) {
+                    item.put("name", value)
+                    getSharedPreferences("netq", MODE_PRIVATE).edit().putString("filter_history", arr.toString()).apply()
+                    Toast.makeText(this, "نام تست ذخیره شد.", Toast.LENGTH_SHORT).show()
+                }
+            }.setNegativeButton("انصراف", null).show()
     }
 
     private fun share(text: String) {
@@ -1086,9 +1715,12 @@ class MainActivity : AppCompatActivity() {
                         part.contains(":") -> part.substringBefore(":").trim()
                         else -> part.take(48)
                     }.ifBlank { "جزئیات " + (n + 1) }
+                    // خلاصه وضعیت DNS در ابتدای گزارش، دوباره در بخش جزئیات DNS آمده است؛
+                    // فقط ردیف‌های جزئیات را نگه می‌داریم تا در مقایسه تکراری دیده نشوند.
+                    if (Regex("^[✓✕—]\\s*DNS", RegexOption.IGNORE_CASE).containsMatchIn(line)) return@forEach
                     val key = section + "|" + label
-                    val unique = if (map.containsKey(key)) key + "|" + map.size else key
-                    map[unique] = section to part
+                    // اگر یک شاخص دوباره آمده باشد، مقدار نهایی جایگزین شود؛ ردیف تکراری نساز.
+                    map[key] = section to part
                 }
             }
             return map
@@ -1121,7 +1753,7 @@ class MainActivity : AppCompatActivity() {
             background = rounded(0xFF123B50.toInt(), radius = 18)
         }
         hero.addView(TextView(this).apply {
-            text = "گزارش مقایسه تست‌ها"
+            text = "مقایسه تست‌های فیلترینگ"
             textSize = 17f; setTextColor(0xFFFFFFFF.toInt())
             setTypeface(typeface, Typeface.BOLD)
         })

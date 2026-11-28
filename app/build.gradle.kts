@@ -11,8 +11,8 @@ android {
         applicationId = "com.netquality.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 8
-        versionName = "2.3"
+        versionCode = 12
+        versionName = "2.7"
     }
     buildTypes {
         release { isMinifyEnabled = false }

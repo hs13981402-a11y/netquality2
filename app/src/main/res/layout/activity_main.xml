@@ -64,90 +64,90 @@
             <Button
                 android:id="@+id/tabTest"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
+                android:layout_height="44dp"
                 android:layout_marginEnd="6dp"
                 android:minWidth="88dp"
-                android:text="تست کامل"
+                android:text="◉  تست کامل"
                 android:textSize="12sp"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#0E9F9A"
+                android:background="@drawable/tab_pill"
                 android:insetTop="0dp"
                 android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabPlot"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
+                android:layout_height="44dp"
                 android:layout_marginEnd="6dp"
                 android:minWidth="104dp"
-                android:text="تریس / پلاتر"
+                android:text="⌁  تریس / پلاتر"
                 android:textSize="12sp"
                 android:textColor="#DCE8F4"
-                android:backgroundTint="#263858"
+                android:background="@drawable/tab_pill"
                 android:insetTop="0dp"
                 android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabChart"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
+                android:layout_height="44dp"
                 android:layout_marginEnd="6dp"
                 android:minWidth="82dp"
-                android:text="نمودار"
+                android:text="▥  نمودار"
                 android:textSize="12sp"
                 android:textColor="#DCE8F4"
-                android:backgroundTint="#263858"
+                android:background="@drawable/tab_pill"
                 android:insetTop="0dp"
                 android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabFilter"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
+                android:layout_height="44dp"
                 android:layout_marginEnd="6dp"
                 android:minWidth="88dp"
-                android:text="فیلترینگ"
+                android:text="◈  فیلترینگ"
                 android:textSize="12sp"
                 android:textColor="#DCE8F4"
-                android:backgroundTint="#263858"
+                android:background="@drawable/tab_pill"
                 android:insetTop="0dp"
                 android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabDns"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
+                android:layout_height="44dp"
                 android:layout_marginEnd="6dp"
                 android:minWidth="68dp"
-                android:text="DNS"
+                android:text="◎  DNS"
                 android:textSize="12sp"
                 android:textColor="#DCE8F4"
-                android:backgroundTint="#263858"
+                android:background="@drawable/tab_pill"
                 android:insetTop="0dp"
                 android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabPacketLoss"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
+                android:layout_height="44dp"
                 android:layout_marginEnd="6dp"
                 android:minWidth="92dp"
-                android:text="Packet Loss"
+                android:text="▤  Packet Loss"
                 android:textSize="12sp"
                 android:textColor="#DCE8F4"
-                android:backgroundTint="#263858"
+                android:background="@drawable/tab_pill"
                 android:insetTop="0dp"
                 android:insetBottom="0dp" />
 
             <Button
                 android:id="@+id/tabSettings"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
+                android:layout_height="44dp"
                 android:minWidth="88dp"
-                android:text="تنظیمات"
+                android:text="⚙  تنظیمات"
                 android:textSize="12sp"
                 android:textColor="#DCE8F4"
-                android:backgroundTint="#263858"
+                android:background="@drawable/tab_pill"
                 android:insetTop="0dp"
                 android:insetBottom="0dp" />
         </LinearLayout>
@@ -489,7 +489,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="آزمون DNS، اتصال TCP/443 و پاسخ HTTPS؛ نتیجه احتمالی است و به‌تنهایی اثبات فیلترینگ نیست."
+                    android:text="آزمون مرحله‌ای DNS، TCP، TLS/SNI، HTTPS و شناسایی CDN؛ هر لایه جداگانه نتیجه‌گیری می‌شود و تشخیص فیلترینگ قطعی نیست."
                     android:textColor="#526579"
                     android:textSize="13sp" />
 
@@ -554,27 +554,37 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="18dp"
-                    android:text="مقایسه دو اپراتور"
+                    android:text="نام‌گذاری و مقایسه تست‌ها"
                     android:textColor="#17324D"
                     android:textSize="17sp"
                     android:textStyle="bold" />
-                <Spinner
-                    android:id="@+id/spFilterCompareA"
+                <EditText
+                    android:id="@+id/etFilterTestName"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:entries="@array/operator_names" />
-                <Spinner
-                    android:id="@+id/spFilterCompareB"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:hint="نام دلخواه؛ مثلاً BRAS فیض یا BRAS خرازی"
+                    android:singleLine="true"
+                    android:padding="12dp"
+                    android:background="@drawable/input_card"
+                    android:textColor="#172B43"
+                    android:textColorHint="#8293A6" />
+                <TextView
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:entries="@array/operator_names" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="هر تست با نام و زمان خودش ذخیره می‌شود؛ از فهرست می‌توانید دو یا چند تست را برای مقایسه انتخاب کنید."
+                    android:textColor="#607080"
+                    android:textSize="12sp" />
                 <Button
                     android:id="@+id/btnCompareFilter"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="نمایش مقایسه اپراتورها"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="10dp"
+                    android:text="انتخاب و مقایسه تست‌ها"
                     android:backgroundTint="#17324D"
-                    android:textColor="#FFFFFF" />
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
                 <Button
                     android:id="@+id/btnShareFilter"
                     android:layout_width="match_parent"
@@ -588,7 +598,7 @@
                     android:layout_marginTop="16dp"
                     android:padding="18dp"
                     android:background="@drawable/report_card"
-                    android:text="گزارش استعلام DNS در این قسمت نمایش داده می‌شود. برای مقایسه اپراتورها، همین تست را روی هر اتصال جداگانه اجرا کنید."
+                    android:text="گزارش مرحله‌ای بررسی دسترسی، DNS، CDN و IP در این قسمت نمایش داده می‌شود."
                     android:textColor="#243B53"
                     android:textSize="15sp"
                     android:lineSpacingExtra="7dp"
@@ -756,6 +766,22 @@
                     android:textColor="#17324D"
                     android:textStyle="bold"
                     android:textSize="14sp" />
+                <CheckBox
+                    android:id="@+id/cbAutoIperfServer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:checked="true"
+                    android:text="انتخاب خودکار سرور رایگان و جایگزین در صورت قطعی"
+                    android:textColor="#17324D"
+                    android:textSize="14sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="در حالت خودکار، سرورها به‌ترتیب بررسی می‌شوند. برای استفاده از سرور خودتان، این گزینه را خاموش کنید."
+                    android:textColor="#607080"
+                    android:textSize="12sp" />
                 <EditText
                     android:id="@+id/etIperfHost"
                     android:layout_width="match_parent"

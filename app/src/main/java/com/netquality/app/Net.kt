@@ -9,8 +9,12 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URL
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 import org.json.JSONObject
 import java.util.Random
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -31,8 +35,11 @@ object Net {
 
     data class HopProbe(val ip: String?, val rtt: Double?, val reached: Boolean)
 
-    data class UdpLossResult(val sent: Int, val received: Int) {
+    data class UdpLossResult(val sent: Int, val received: Int, val latenciesMs: List<Double> = emptyList()) {
         val loss: Double get() = if (sent == 0) 100.0 else (sent - received) * 100.0 / sent
+        val avgRttMs: Double get() = if (latenciesMs.isEmpty()) 0.0 else latenciesMs.average()
+        val jitterMs: Double get() = if (latenciesMs.size < 2) 0.0 else
+            latenciesMs.zipWithNext().map { (a, b) -> kotlin.math.abs(b - a) }.average()
     }
 
     // ───────── پینگ ─────────
@@ -183,76 +190,154 @@ object Net {
     }
 
 
+    /** TLS handshake with explicit SNI; null means handshake/connection failed. */
+    fun tlsOnce(domain: String, timeoutMs: Int = 6000): Long? {
+        return try {
+            (SSLSocketFactory.getDefault().createSocket() as SSLSocket).use { socket ->
+                socket.connect(InetSocketAddress(domain, 443), timeoutMs)
+                socket.soTimeout = timeoutMs
+                socket.sslParameters = socket.sslParameters.apply {
+                    serverNames = listOf(SNIHostName(domain))
+                }
+                val started = System.nanoTime()
+                socket.startHandshake()
+                (System.nanoTime() - started) / 1_000_000
+            }
+        } catch (_: Exception) { null }
+    }
+
     data class SiteInfra(
         val ips: List<String>, val cdn: String, val serverHeader: String?,
         val cfRay: String?, val colo: String?, val country: String?,
-        val city: String?, val org: String?, val geoNote: String?
+        val city: String?, val org: String?, val geoNote: String?,
+        val cname: String?, val asn: String?, val evidence: List<String>
     )
 
-    /** شناسایی سرنخ‌های CDN و موقعیت تقریبی IP قابل مشاهده؛ نه IP مبدأ پنهان‌شده */
+    private fun dohLookup(domain: String, type: Int): List<String> {
+        return try {
+            val c = URL("https://dns.google/resolve?name=$domain&type=$type").openConnection() as HttpURLConnection
+            c.connectTimeout = 4500
+            c.readTimeout = 4500
+            c.setRequestProperty("Accept", "application/dns-json")
+            val json = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
+            c.disconnect()
+            val answers = json.optJSONArray("Answer") ?: return emptyList()
+            (0 until answers.length()).mapNotNull { i ->
+                answers.optJSONObject(i)?.optString("data")?.trim()?.trimEnd('.')
+                    ?.takeIf { it.isNotBlank() }
+            }.distinct()
+        } catch (_: Exception) { emptyList() }
+    }
+
+    /** Broader CDN fingerprinting using DNS, HTTP headers and ASN/organization evidence. */
     fun inspectSiteInfrastructure(domain: String): SiteInfra {
-        val ips = try { InetAddress.getAllByName(domain).map { it.hostAddress ?: "" }.filter { it.isNotBlank() }.distinct() } catch (_: Exception) { emptyList() }
-        var server: String? = null
-        var cfRay: String? = null
-        var cdn = "شناسایی نشد"
+        val ips = try { InetAddress.getAllByName(domain).mapNotNull { it.hostAddress }.distinct() } catch (_: Exception) { emptyList() }
+        val chain = ArrayList<String>()
+        var current = domain
+        for (hop in 0 until 8) {
+            val next = dohLookup(current, 5).firstOrNull() ?: break
+            if (next.equals(current, true) || chain.any { it.equals(next, true) }) break
+            chain.add(next)
+            current = next
+        }
+        val ns = dohLookup(domain, 2)
+        var server: String? = null; var cfRay: String? = null
+        var via = ""; var cache = ""; var cfId = ""; var azureRef = ""; var imperva = ""; var served = ""
         try {
             val c = URL("https://$domain").openConnection() as HttpURLConnection
-            c.connectTimeout = 6000
-            c.readTimeout = 6000
-            c.instanceFollowRedirects = true
-            c.requestMethod = "GET"
-            c.setRequestProperty("User-Agent", "NetQuality/2.0")
-            c.responseCode
-            server = c.getHeaderField("Server")
-            cfRay = c.getHeaderField("CF-Ray")
-            val via = c.getHeaderField("Via") ?: ""
-            val powered = c.getHeaderField("X-Powered-By") ?: ""
-            cdn = when {
-                cfRay != null || (server ?: "").contains("cloudflare", true) -> "Cloudflare"
-                via.contains("cloudfront", true) || (server ?: "").contains("cloudfront", true) -> "Amazon CloudFront"
-                (server ?: "").contains("akama", true) || via.contains("akamai", true) -> "Akamai"
-                (server ?: "").contains("fastly", true) || c.getHeaderField("X-Served-By") != null -> "احتمالاً Fastly یا CDN مشابه"
-                else -> "از روی هدرها قابل تشخیص نیست"
+            c.connectTimeout = 6500; c.readTimeout = 6500; c.instanceFollowRedirects = true
+            c.requestMethod = "GET"; c.setRequestProperty("Range", "bytes=0-0")
+            c.setRequestProperty("User-Agent", "NetQuality/2.5")
+            try { c.responseCode } catch (_: Exception) { }
+            server = c.getHeaderField("Server"); cfRay = c.getHeaderField("CF-Ray")
+            via = c.getHeaderField("Via") ?: ""; cache = c.getHeaderField("X-Cache") ?: ""
+            served = c.getHeaderField("X-Served-By") ?: ""; cfId = c.getHeaderField("X-Amz-Cf-Id") ?: ""
+            azureRef = c.getHeaderField("X-Azure-Ref") ?: ""; imperva = c.getHeaderField("X-Iinfo") ?: ""
+            c.disconnect()
+        } catch (_: Exception) { }
+        val ip = ips.firstOrNull { it.contains(".") } ?: ips.firstOrNull()
+        var country: String? = null; var city: String? = null; var org: String? = null; var asn: String? = null
+        if (ip != null) try {
+            val c = URL("https://ipwho.is/$ip").openConnection() as HttpURLConnection
+            c.connectTimeout = 5000; c.readTimeout = 5000
+            val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
+            if (j.optBoolean("success", false)) {
+                country = j.optString("country").takeIf { it.isNotBlank() }; city = j.optString("city").takeIf { it.isNotBlank() }
+                val con = j.optJSONObject("connection")
+                org = con?.optString("org")?.takeIf { it.isNotBlank() }; asn = con?.optString("asn")?.takeIf { it.isNotBlank() }
             }
             c.disconnect()
         } catch (_: Exception) { }
+        val cnameText = chain.joinToString(" ").lowercase(Locale.ROOT)
+        val nsText = ns.joinToString(" ").lowercase(Locale.ROOT)
+        val orgText = org.orEmpty().lowercase(Locale.ROOT); val asnText = asn.orEmpty().lowercase(Locale.ROOT)
+        val signals = listOf(cnameText, orgText, server.orEmpty(), via, cache, served, cfId, azureRef, imperva)
+            .joinToString(" ").lowercase(Locale.ROOT)
+        val rules = listOf(
+            Triple("Cloudflare", listOf("cloudflare"), listOf("13335")),
+            Triple("Amazon CloudFront", listOf("cloudfront.net", "cloudfront"), listOf("16509")),
+            Triple("Akamai", listOf("akamai", "edgekey.net", "edgesuite.net", "akamaized.net"), listOf("20940", "16625", "35994")),
+            Triple("Fastly", listOf("fastly.net", "fastlylb.net", "x-served-by"), listOf("54113")),
+            Triple("Microsoft Azure Front Door/CDN", listOf("azureedge.net", "azurefd.net", "trafficmanager.net", "x-azure-ref"), listOf("8075")),
+            Triple("Google Cloud CDN", listOf("googleusercontent.com", "googlehosted.com", "gcdn"), listOf("15169")),
+            Triple("Imperva / Incapsula", listOf("incapdns.net", "imperva", "incapsula", "x-iinfo"), listOf("19551")),
+            Triple("Gcore", listOf("gcore", "gcdn.co", "gcorelabs.net"), listOf("199524")),
+            Triple("Bunny CDN", listOf("b-cdn.net", "bunnycdn", "bunny.net"), listOf("200373")),
+            Triple("KeyCDN", listOf("kxcdn.com", "keycdn"), listOf("16625")),
+            Triple("Sucuri", listOf("sucuri", "cloudproxy"), listOf("30148")),
+            Triple("Edgio / Limelight", listOf("edgio", "llnwd.net", "limelight"), listOf("22822")),
+            Triple("CacheFly", listOf("cachefly"), listOf("30081")),
+            Triple("Alibaba Cloud CDN", listOf("alikunlun", "kunlun", "aliyuncs"), listOf("45102")),
+            Triple("Tencent Cloud CDN", listOf("dnsv1.com", "tencent", "qcloud"), listOf("45090"))
+        )
+        val found = rules.mapNotNull { (name, patterns, asns) ->
+            val explicitHeader = when (name) {
+                "Cloudflare" -> cfRay != null
+                "Amazon CloudFront" -> cfId.isNotBlank()
+                "Microsoft Azure Front Door/CDN" -> azureRef.isNotBlank()
+                "Imperva / Incapsula" -> imperva.isNotBlank()
+                else -> false
+            }
+            if (explicitHeader || patterns.any { signals.contains(it) } ||
+                (asns.any { asnText.contains(it) } && orgText.isNotBlank())) name else null
+        }.distinct()
+        val cdn = when {
+            found.size == 1 -> found.first()
+            found.size > 1 -> found.joinToString(" / ") + " (چند نشانه)"
+            chain.isNotEmpty() -> "CDN یا سرویس واسط محتمل؛ ارائه‌دهنده مشخص نشد"
+            cache.contains("hit", true) || served.contains("cache", true) -> "وجود Cache محتمل؛ ارائه‌دهنده مشخص نشد"
+            else -> "CDN از شواهد فعلی تأیید نشد"
+        }
+        val evidence = ArrayList<String>()
+        if (chain.isNotEmpty()) evidence.add("زنجیره CNAME: " + chain.joinToString(" → "))
+        if (ns.isNotEmpty()) evidence.add("NS: " + ns.take(5).joinToString(", "))
+        if (cfRay != null) evidence.add("هدر اختصاصی CF-Ray")
+        if (ns.isNotEmpty()) evidence.add("NS دامنه (به‌تنهایی اثبات CDN نیست): " + ns.take(5).joinToString(", "))
+        if (cfId.isNotBlank()) evidence.add("هدر X-Amz-Cf-Id")
+        if (azureRef.isNotBlank()) evidence.add("هدر X-Azure-Ref")
+        if (imperva.isNotBlank()) evidence.add("هدر X-Iinfo")
+        if (server != null) evidence.add("Server: $server")
+        if (via.isNotBlank()) evidence.add("Via: $via")
+        if (cache.isNotBlank() || served.isNotBlank()) evidence.add("Cache/Served-By: " + listOf(cache, served).filter { it.isNotBlank() }.joinToString(" / "))
+        if (asn != null || org != null) evidence.add("مالک شبکه IP: " + listOfNotNull(asn, org).joinToString(" / "))
+        if (found.isNotEmpty()) evidence.add("ارائه‌دهنده محتمل بر اساس شواهد: " + found.joinToString(", "))
         var colo: String? = null
-        if (cdn == "Cloudflare") {
-            try {
-                val c = URL("https://$domain/cdn-cgi/trace").openConnection() as HttpURLConnection
-                c.connectTimeout = 5000
-                c.readTimeout = 5000
-                val body = c.inputStream.bufferedReader().use { it.readText() }
-                colo = body.lineSequence().firstOrNull { it.startsWith("colo=") }?.substringAfter("=")
-                c.disconnect()
-            } catch (_: Exception) { }
-        }
-        val ip = ips.firstOrNull { it.contains(".") } ?: ips.firstOrNull()
-        var country: String? = null
-        var city: String? = null
-        var org: String? = null
-        if (ip != null) {
-            try {
-                val c = URL("https://ipwho.is/$ip").openConnection() as HttpURLConnection
-                c.connectTimeout = 5000
-                c.readTimeout = 5000
-                val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
-                if (j.optBoolean("success", false)) {
-                    country = j.optString("country").takeIf { it.isNotBlank() }
-                    city = j.optString("city").takeIf { it.isNotBlank() }
-                    org = j.optJSONObject("connection")?.optString("org")?.takeIf { it.isNotBlank() }
-                }
-                c.disconnect()
-            } catch (_: Exception) { }
-        }
-        return SiteInfra(ips, cdn, server, cfRay, colo, country, city, org,
-            if (cdn == "Cloudflare") "IP و موقعیت بالا مربوط به لبه Cloudflare است؛ موقعیت سرور اصلی از این اطلاعات مشخص نمی‌شود." else "موقعیت IP بر اساس پایگاه GeoIP تخمینی است و الزاماً محل فیزیکی سرور نیست.")
+        if ("Cloudflare" in found) try {
+            val c = URL("https://$domain/cdn-cgi/trace").openConnection() as HttpURLConnection
+            c.connectTimeout = 4500; c.readTimeout = 4500
+            colo = c.inputStream.bufferedReader().use { it.readText() }.lineSequence().firstOrNull { it.startsWith("colo=") }?.substringAfter("=")
+            c.disconnect()
+        } catch (_: Exception) { }
+        val note = if (found.isNotEmpty()) "تشخیص بر اساس نشانه‌های DNS، هدر یا ASN است. IP و GeoIP معمولاً مربوط به لبه CDN/شبکه واسط هستند، نه سرور مبدأ."
+            else "نبود نشانه به معنی نبود CDN نیست؛ برخی سرویس‌ها CNAME و هدرها را پنهان می‌کنند. GeoIP فقط تخمین موقعیت IP پاسخ‌گو است."
+        return SiteInfra(ips, cdn, server, cfRay, colo, country, city, org, note, chain.firstOrNull(), asn, evidence)
     }
 
     data class IperfUdpResult(
         val host: String, val port: Int, val bitrate: String,
         val sentPackets: Long, val lostPackets: Long, val lossPercent: Double,
-        val jitterMs: Double, val throughputMbps: Double
+        val jitterMs: Double, val throughputMbps: Double,
+        val mode: String = "iperf3", val avgRttMs: Double = 0.0
     )
 
     fun iperfUdpTest(context: android.content.Context, host: String, port: Int, bitrate: String, durationSeconds: Int = 10): IperfUdpResult {
@@ -292,14 +377,15 @@ object Net {
         return IperfUdpResult(host, port, bitrate, sent, lost, loss, jitter, mbps)
     }
 
-    fun udpLossTest(server: String, domain: String, count: Int): UdpLossResult {
-        var received = 0
+    /** Measures UDP/53 DNS request-response success, RTT and jitter (not arbitrary UDP payload loss). */
+    fun udpLossTest(server: String, domain: String, count: Int, timeoutMs: Int = 1000): UdpLossResult {
+        val latencies = ArrayList<Double>()
         repeat(count) {
-            val result = dnsQuery(server, domain, 1200)
-            if (result != null && result >= 0) received++
-            if (it < count - 1) Thread.sleep(120)
+            val result = dnsQuery(server, domain, timeoutMs)
+            if (result != null && result >= 0) latencies.add(result.toDouble())
+            if (it < count - 1) Thread.sleep(80)
         }
-        return UdpLossResult(count, received)
+        return UdpLossResult(count, latencies.size, latencies)
     }
 
     fun uploadTest(): Double? {
