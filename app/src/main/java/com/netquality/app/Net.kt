@@ -181,6 +181,73 @@ object Net {
         }
     }
 
+
+    data class SiteInfra(
+        val ips: List<String>, val cdn: String, val serverHeader: String?,
+        val cfRay: String?, val colo: String?, val country: String?,
+        val city: String?, val org: String?, val geoNote: String?
+    )
+
+    /** شناسایی سرنخ‌های CDN و موقعیت تقریبی IP قابل مشاهده؛ نه IP مبدأ پنهان‌شده */
+    fun inspectSiteInfrastructure(domain: String): SiteInfra {
+        val ips = try { InetAddress.getAllByName(domain).map { it.hostAddress ?: "" }.filter { it.isNotBlank() }.distinct() } catch (_: Exception) { emptyList() }
+        var server: String? = null
+        var cfRay: String? = null
+        var cdn = "شناسایی نشد"
+        try {
+            val c = URL("https://$domain").openConnection() as HttpURLConnection
+            c.connectTimeout = 6000
+            c.readTimeout = 6000
+            c.instanceFollowRedirects = true
+            c.requestMethod = "GET"
+            c.setRequestProperty("User-Agent", "NetQuality/2.0")
+            c.responseCode
+            server = c.getHeaderField("Server")
+            cfRay = c.getHeaderField("CF-Ray")
+            val via = c.getHeaderField("Via") ?: ""
+            val powered = c.getHeaderField("X-Powered-By") ?: ""
+            cdn = when {
+                cfRay != null || (server ?: "").contains("cloudflare", true) -> "Cloudflare"
+                via.contains("cloudfront", true) || (server ?: "").contains("cloudfront", true) -> "Amazon CloudFront"
+                (server ?: "").contains("akama", true) || via.contains("akamai", true) -> "Akamai"
+                (server ?: "").contains("fastly", true) || c.getHeaderField("X-Served-By") != null -> "احتمالاً Fastly یا CDN مشابه"
+                else -> "از روی هدرها قابل تشخیص نیست"
+            }
+            c.disconnect()
+        } catch (_: Exception) { }
+        var colo: String? = null
+        if (cdn == "Cloudflare") {
+            try {
+                val c = URL("https://$domain/cdn-cgi/trace").openConnection() as HttpURLConnection
+                c.connectTimeout = 5000
+                c.readTimeout = 5000
+                val body = c.inputStream.bufferedReader().use { it.readText() }
+                colo = body.lineSequence().firstOrNull { it.startsWith("colo=") }?.substringAfter("=")
+                c.disconnect()
+            } catch (_: Exception) { }
+        }
+        val ip = ips.firstOrNull { it.contains(".") } ?: ips.firstOrNull()
+        var country: String? = null
+        var city: String? = null
+        var org: String? = null
+        if (ip != null) {
+            try {
+                val c = URL("https://ipwho.is/$ip").openConnection() as HttpURLConnection
+                c.connectTimeout = 5000
+                c.readTimeout = 5000
+                val j = org.json.JSONObject(c.inputStream.bufferedReader().use { it.readText() })
+                if (j.optBoolean("success", false)) {
+                    country = j.optString("country").takeIf { it.isNotBlank() }
+                    city = j.optString("city").takeIf { it.isNotBlank() }
+                    org = j.optJSONObject("connection")?.optString("org")?.takeIf { it.isNotBlank() }
+                }
+                c.disconnect()
+            } catch (_: Exception) { }
+        }
+        return SiteInfra(ips, cdn, server, cfRay, colo, country, city, org,
+            if (cdn == "Cloudflare") "IP و موقعیت بالا مربوط به لبه Cloudflare است؛ موقعیت سرور اصلی از این اطلاعات مشخص نمی‌شود." else "موقعیت IP بر اساس پایگاه GeoIP تخمینی است و الزاماً محل فیزیکی سرور نیست.")
+    }
+
     data class IperfUdpResult(
         val host: String, val port: Int, val bitrate: String,
         val sentPackets: Long, val lostPackets: Long, val lossPercent: Double,
