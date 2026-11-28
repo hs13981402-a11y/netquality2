@@ -489,7 +489,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="آزمون DNS، اتصال TCP/443 و پاسخ HTTPS؛ نتیجه احتمالی است و به‌تنهایی اثبات فیلترینگ نیست."
+                    android:text="آزمون مرحله‌ای DNS، TCP، TLS/SNI، HTTPS و شناسایی CDN؛ هر لایه جداگانه نتیجه‌گیری می‌شود و تشخیص فیلترینگ قطعی نیست."
                     android:textColor="#526579"
                     android:textSize="13sp" />
 
