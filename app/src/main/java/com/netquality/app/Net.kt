@@ -236,7 +236,7 @@ object Net {
                 val c = URL("https://ipwho.is/$ip").openConnection() as HttpURLConnection
                 c.connectTimeout = 5000
                 c.readTimeout = 5000
-                val j = org.json.JSONObject(c.inputStream.bufferedReader().use { it.readText() })
+                val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
                 if (j.optBoolean("success", false)) {
                     country = j.optString("country").takeIf { it.isNotBlank() }
                     city = j.optString("city").takeIf { it.isNotBlank() }
