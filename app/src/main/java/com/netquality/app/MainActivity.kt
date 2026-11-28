@@ -663,50 +663,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun compareFilterOperators() {
-        val a = spFilterCompareA.selectedItem.toString()
-        val b = spFilterCompareB.selectedItem.toString()
-        if (a == b) { Toast.makeText(this, "دو اپراتور متفاوت انتخاب کنید", Toast.LENGTH_SHORT).show(); return }
-        val prefs = getSharedPreferences("netq", MODE_PRIVATE)
-        val ra = prefs.getString("filter_result_$a", null)
-        val rb = prefs.getString("filter_result_$b", null)
-        if (ra == null || rb == null) {
-            val missing = listOfNotNull(if (ra == null) a else null, if (rb == null) b else null).joinToString(" و ")
-            AlertDialog.Builder(this).setTitle("گزارش کافی نیست").setMessage("برای $missing هنوز آزمون ذخیره‌شده وجود ندارد. ابتدا روی اتصال واقعی هر اپراتور یک تست کامل اجرا کنید.")
-                .setPositiveButton("متوجه شدم", null).show(); return
-        }
-        fun value(report: String, prefix: String): String = report.lineSequence().firstOrNull { it.startsWith(prefix) }?.substringAfter(":")?.trim() ?: "ثبت نشده"
-        val rows = listOf(
-            "نتیجه کلی" to Pair(value(ra, "نتیجه:"), value(rb, "نتیجه:")),
-            "DNS سیستم" to Pair(value(ra, "DNS سیستم:"), value(rb, "DNS سیستم:")),
-            "DNS 1.1.1.1" to Pair(value(ra, "DNS 1.1.1.1:"), value(rb, "DNS 1.1.1.1:")),
-            "DNS 8.8.8.8" to Pair(value(ra, "DNS 8.8.8.8:"), value(rb, "DNS 8.8.8.8:")),
-            "TCP/443 مقصد" to Pair(value(ra, "TCP/443 مقصد:"), value(rb, "TCP/443 مقصد:")),
-            "TLS/SNI" to Pair(value(ra, "TLS/SNI:"), value(rb, "TLS/SNI:")),
-            "HTTPS" to Pair(value(ra, "HTTPS:"), value(rb, "HTTPS:")),
-            "CDN" to Pair(value(ra, "CDN:"), value(rb, "CDN:")),
-            "IP قابل مشاهده" to Pair(value(ra, "IPهای قابل مشاهده:"), value(rb, "IPهای قابل مشاهده:")),
-            "ASN" to Pair(value(ra, "ASN:"), value(rb, "ASN:")),
-            "کشور تقریبی IP" to Pair(value(ra, "کشور تقریبی IP لبه:"), value(rb, "کشور تقریبی IP لبه:"))
-        )
-        val different = rows.filter { it.second.first != it.second.second }
-        val report = buildString {
-            append("مقایسه دو اتصال واقعی\nدامنه: ").append(Regex("دامنه: ([^\\n]+)").find(ra)?.groupValues?.get(1) ?: "نامشخص").append("\n\n")
-            append("شاخص‌های متفاوت: ${different.size} از ${rows.size}\n\n")
-            rows.forEach { (label, pair) ->
-                val changed = pair.first != pair.second
-                append(if (changed) "◆ " else "✓ ").append(label).append("\n")
-                append("  $a: ${pair.first}\n")
-                append("  $b: ${pair.second}\n\n")
-            }
-            append("نکته: فقط شاخص‌های دارای مقدار متفاوت، تفاوت مشاهده‌شده‌اند. انتخاب نام اپراتور مسیر اینترنت را تغییر نمی‌دهد؛ هر گزارش باید هنگام اتصال واقعی به همان اپراتور ثبت شده باشد.")
-        }
-        val view = TextView(this).apply { text = report; textSize = 13f; setTextColor(0xFF243B53.toInt()); setPadding(24, 12, 24, 8); setLineSpacing(5f, 1f) }
-        val scroll = ScrollView(this).apply { addView(view); isFillViewport = true }
-        AlertDialog.Builder(this).setTitle("مقایسه $a و $b").setView(scroll)
-            .setPositiveButton("اشتراک‌گذاری") { _, _ -> share(report) }
-            .setNegativeButton("بستن", null).show()
-    }
     private fun compareFilterTests() {
         val prefs = getSharedPreferences("netq", MODE_PRIVATE)
         val arr = try { JSONArray(prefs.getString("filter_history", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
@@ -717,7 +673,7 @@ class MainActivity : AppCompatActivity() {
         }
         val labels = Array(arr.length()) { i ->
             val item = arr.getJSONObject(i)
-            "${item.optString("name")} | ${item.optString("domain")} | ${item.optString("time")}"
+            "${item.optString("name").ifBlank { item.optString("operator") }} | ${item.optString("domain")} | ${item.optString("time")}"
         }
         val selected = BooleanArray(arr.length())
         val dialog = AlertDialog.Builder(this).setTitle("انتخاب تست‌ها برای مقایسه")
@@ -1264,7 +1220,7 @@ class MainActivity : AppCompatActivity() {
             background = rounded(0xFF123B50.toInt(), radius = 18)
         }
         hero.addView(TextView(this).apply {
-            text = "گزارش مقایسه تست‌ها"
+            text = "مقایسه تست‌های فیلترینگ"
             textSize = 17f; setTextColor(0xFFFFFFFF.toInt())
             setTypeface(typeface, Typeface.BOLD)
         })
