@@ -379,6 +379,36 @@ class MainActivity : AppCompatActivity() {
         return host to port
     }
 
+    private suspend fun runDnsUdpFallback(): Pair<String, Net.UdpLossResult> = withContext(Dispatchers.IO) {
+        val servers = listOf(
+            "5.200.200.200" to "DNS مخابرات",
+            "2.189.44.44" to "DNS زیرساخت",
+            "1.1.1.1" to "Cloudflare DNS",
+            "8.8.8.8" to "Google DNS"
+        )
+        val results = servers.map { (host, label) ->
+            val result = Net.udpLossTest(host, "example.com", 20, 1200)
+            Triple(host, label, result)
+        }
+        val best = results.maxByOrNull { it.third.received }
+            ?: throw IllegalStateException("هیچ DNS برای آزمون UDP انتخاب نشد.")
+        if (best.third.received == 0) {
+            throw IllegalStateException("iperf3 در دسترس نبود و هیچ‌یک از DNSها نیز از طریق UDP/53 پاسخ ندادند. احتمال محدودیت UDP/53 وجود دارد.")
+        }
+        best.first to best.third
+    }
+
+    private fun formatDnsUdpFallback(host: String, result: Net.UdpLossResult, purpose: String): String {
+        return "روش جایگزین: UDP/53 DNS Request-Response\n" +
+            "سرور پاسخ‌گو: $host:53\n" +
+            "درخواست‌ها: ${result.sent}\nپاسخ‌های دریافت‌شده: ${result.received}\n" +
+            "عدم دریافت پاسخ: ${"%.2f".format(Locale.US, result.loss)}٪\n" +
+            "میانگین RTT پاسخ‌ها: ${"%.2f".format(Locale.US, result.avgRttMs)} ms\n" +
+            "Jitter پاسخ‌ها: ${"%.2f".format(Locale.US, result.jitterMs)} ms\n\n" +
+            "توجه: این روش دسترسی و کیفیت تبادل DNS روی UDP/53 را می‌سنجد و جایگزین اندازه‌گیری عمومی iperf3 یا Packet Loss تمام ترافیک UDP نیست. " +
+            "برای آزمون $purpose یک سرور iperf3 اختصاصی لازم است."
+    }
+
     private fun runStandaloneUdpLoss() {
         val button = findViewById<Button>(R.id.btnUdpLoss)
         button.isEnabled = false
@@ -388,7 +418,12 @@ class MainActivity : AppCompatActivity() {
                 val result = runIperfUdpWithFallback("1M", 10)
                 tvUdpLossResult.text = "سرور: ${result.host}:${result.port}\nنرخ هدف: ${result.bitrate}\nبسته‌های گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ واقعی: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps"
             } catch (e: Exception) {
-                tvUdpLossResult.text = "آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}\nممکن است سرور عمومی در دسترس نباشد یا UDP/5201 را محدود کرده باشد."
+                tvUdpLossResult.text = try {
+                    val (host, result) = runDnsUdpFallback()
+                    "سرورهای عمومی iperf3 در دسترس نبودند.\n\n" + formatDnsUdpFallback(host, result, "Packet Loss")
+                } catch (fallback: Exception) {
+                    "آزمون ناموفق بود.\niperf3: ${e.message}\nآزمون جایگزین: ${fallback.message}"
+                }
             } finally { button.isEnabled = true }
         }
     }
@@ -402,7 +437,14 @@ class MainActivity : AppCompatActivity() {
                 val result = runIperfUdpWithFallback("10M", 15)
                 tvUploadLossResult.text = "آزمون UDP Upload به سرور ${result.host}:${result.port}\nنرخ هدف ارسال: ${result.bitrate}\nبسته‌های ارسالی/گزارش‌شده: ${result.sentPackets}\nبسته‌های ازدست‌رفته: ${result.lostPackets}\nPacket Loss در مسیر Upload: ${"%.2f".format(Locale.US, result.lossPercent)}%\nJitter: ${"%.2f".format(Locale.US, result.jitterMs)} ms\nنرخ دریافت‌شده در سرور: ${"%.2f".format(Locale.US, result.throughputMbps)} Mbps\n\nاین آزمون افت بسته‌های UDP ارسالی از گوشی به سرور را می‌سنجد؛ آزمون اشباع هم‌زمان TCP نیست."
             } catch (e: Exception) {
-                tvUploadLossResult.text = "آزمون ناموفق بود: ${e.message ?: "خطای نامشخص"}\nممکن است سرور عمومی در دسترس نباشد یا UDP/5201 را محدود کرده باشد."
+                tvUploadLossResult.text = try {
+                    val (host, result) = runDnsUdpFallback()
+                    "سرورهای عمومی iperf3 در دسترس نبودند.\n\n" +
+                        formatDnsUdpFallback(host, result, "Upload") +
+                        "\n\nاین نتیجه Packet Loss آپلود را نشان نمی‌دهد؛ برای سنجش یک‌طرفه آپلود باید سرور iperf3 اختصاصی در دسترس باشد."
+                } catch (fallback: Exception) {
+                    "آزمون ناموفق بود.\niperf3: ${e.message}\nآزمون جایگزین: ${fallback.message}"
+                }
             } finally { button.isEnabled = true }
         }
     }
