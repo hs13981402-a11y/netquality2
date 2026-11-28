@@ -14,6 +14,7 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 import org.json.JSONObject
 import java.util.Random
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 
